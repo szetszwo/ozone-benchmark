@@ -60,7 +60,7 @@ public class Benchmark {
   private static final int MB = 1 << 20;
   private static final int BUFFER_SIZE_IN_BYTES = 4*MB;
 
-  private static final int NUM_DIRS = 16;
+  private static final int NUM_DIRS = 2;
 
   static File getDir(File root, int n) {
     final int index = Math.toIntExact(Integer.toUnsignedLong(n) % NUM_DIRS);
@@ -70,7 +70,7 @@ public class Benchmark {
 
   static void createDirs(File root) throws IOException {
     for (int i = 0; i < NUM_DIRS; i++) {
-      Files.createDirectory(getDir(root, i).toPath());
+      Files.createDirectories(getDir(root, i).toPath());
     }
   }
 
@@ -274,32 +274,10 @@ public class Benchmark {
     return OzoneClientFactory.getRpcClient(conf);
   }
 
-  public static void main(String[] args) throws Exception {
-    final CommandArgs commandArgs = new CommandArgs();
-    JCommander.newBuilder().addObject(commandArgs).build().parse(args);
-    Print.ln("main", commandArgs);
-
-
-    final Sync.Server launchSync = new Sync.Server(commandArgs.clients);
-    new Thread(launchSync).start();
-
-    int exit = 0;
-    try {
-      benchmark(commandArgs.om, commandArgs.volume, commandArgs.bucket,
-          commandArgs.fileNum, commandArgs.fileSize, commandArgs.chunkSize, launchSync);
-    } catch (Throwable e) {
-      Print.error("Benchmark", "Failed", e);
-      exit = 1;
-    } finally {
-      System.exit(exit);
-    }
-  }
-
   enum Type {ASYNC_API, STREAM_API};
 
   static void benchmark(String om, String volumeName, String bucketName,
-      int numFiles, int fileSize, int chunkSize, Sync.Server launchSync) throws Exception {
-    final File root = new File(".");
+      int numFiles, int fileSize, int chunkSize, File root, Sync.Server launchSync) throws Exception {
     createDirs(root);
 
     final ExecutorService executor = Executors.newFixedThreadPool(1000);
@@ -365,6 +343,28 @@ public class Benchmark {
 
       final Duration elapsed = Duration.between(start, Instant.now());
       Print.ln(type + "_ELAPSED", elapsed);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    final CommandArgs commandArgs = new CommandArgs();
+    JCommander.newBuilder().addObject(commandArgs).build().parse(args);
+    Print.ln("main", commandArgs);
+
+
+    final Sync.Server launchSync = new Sync.Server(commandArgs.clients);
+    new Thread(launchSync).start();
+
+    final File root = new File(commandArgs.localRootDir);
+    int exit = 0;
+    try {
+      benchmark(commandArgs.om, commandArgs.volume, commandArgs.bucket,
+          commandArgs.fileNum, commandArgs.fileSize, commandArgs.chunkSize, root, launchSync);
+    } catch (Throwable e) {
+      Print.error("Benchmark", "Failed", e);
+      exit = 1;
+    } finally {
+      System.exit(exit);
     }
   }
 }

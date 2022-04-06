@@ -50,14 +50,19 @@ public class CommandArgs {
   @Parameter(names = "-checksum")
   public boolean checksum = false;
 
+  @Parameter(names = "-localRootDir")
+  public String localRootDir = "benchmarkData";
+
   @Override
   public String toString() {
-    return "clients=" + clients +
-        "\n  volume='" + volume + '\'' +
-        "\n  bucket='" + bucket + '\'' +
-        "\n  fileNum=" + fileNum +
-        "\n  chunkSize=" + chunkSize +
-        "\n  fileSize=" + fileSize +
-        "\n  checksum=" + checksum;
+    return clients
+        + "\n        volume = '" + volume + '\''
+        + "\n        bucket = '" + bucket + '\''
+        + "\n       fileNum = " + fileNum
+        + "\n     chunkSize = " + chunkSize
+        + "\n      fileSize = " + fileSize
+        + "\n      checksum = " + checksum
+        + "\n  localRootDir = " + localRootDir
+        ;
   }
 }
