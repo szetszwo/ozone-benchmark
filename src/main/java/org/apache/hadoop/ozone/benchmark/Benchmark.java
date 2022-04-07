@@ -110,19 +110,19 @@ public class Benchmark {
       Print.ln("Ozone", "client " + ozoneClient);
       // An Ozone ObjectStore instance is the entry point to access Ozone.
       final ObjectStore store = ozoneClient.getObjectStore();
-      Print.ln("Ozone", "store " + store);
+      Print.ln("Ozone", "Store " + store.getCanonicalServiceName());
 
       // Create volume with random name.
-      final String volumeName = "benchmark-vol-" + id;
+      final String volumeName = "bench-vol-" + id;
       store.createVolume(volumeName);
       final OzoneVolume volume = store.getVolume(volumeName);
-      Print.ln("Ozone", "volume " + volumeName + " created.");
+      Print.ln("Ozone", "Volume " + volumeName + " created.");
 
       // Create bucket with random name.
-      final String bucketName = "benchmark-buck-" + id;
+      final String bucketName = "bench-buck-" + id;
       volume.createBucket(bucketName);
       final OzoneBucket bucket = volume.getBucket(bucketName);
-      Print.ln("Ozone", "bucket " + bucketName + " created.");
+      Print.ln("Ozone", "Bucket " + bucketName + " created.");
 
       final ReplicationConfig replication = ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS, ReplicationFactor.THREE);
 

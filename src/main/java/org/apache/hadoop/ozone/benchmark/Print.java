@@ -29,7 +29,7 @@ public class Print {
   static private final AtomicInteger ERROR_COUNT = new AtomicInteger();
 
   static void printShutdownMessage() {
-    Print.ln("SHUTDOWN", "--------------------------------------");
+    Print.ln("SHUTDOWN", "**************************************");
     Print.ln("SHUTDOWN", Duration.between(START, Instant.now()));
     Print.ln("SHUTDOWN", "ERROR_COUNT = " + ERROR_COUNT);
   }
