@@ -35,6 +35,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 interface Utils {
+  enum Op {CREATE_DIRS, DROP_CACHE, LOCAL_FILES}
+
   static void createDirs(List<File> localDirs) {
     for (int i = 0; i < localDirs.size(); i++) {
       final Path dir = localDirs.get(i).toPath();
@@ -43,7 +45,7 @@ interface Utils {
         Files.createDirectories(dir);
       } catch (IOException e) {
         if (Files.isDirectory(dir)) {
-          Print.error("createDirs", "Directory " + dir + " exists", e);
+          Print.error(Op.CREATE_DIRS, "Directory " + dir + " exists", e);
         } else {
           throw new IllegalStateException("Failed to process " + dir, e);
         }
@@ -83,12 +85,13 @@ interface Utils {
     }
   }
 
-  static void sleepMs(long ms) throws InterruptedException {
-    for(; ms > 0; ) {
-      Print.ln("Sleep " + ms + "ms", "wait for disk write");
+  static void sleepMs(long ms, Object reason) throws InterruptedException {
+    Print.ln("SLEEP " + ms + "ms", reason);
+    for(int i = 0; ms > 0; i++) {
       final long sleep = Math.min(5000, ms);
       TimeUnit.MILLISECONDS.sleep(sleep);
       ms -= sleep;
+      Print.ln("  sleep " + i, "remaining " + ms + "ms");
     }
   }
 
@@ -97,14 +100,14 @@ interface Utils {
     try {
       runCommand(dropCacheCmd);
     } catch (Throwable e) {
-      Print.error("dropCache", "Failed to runCommand " + Arrays.toString(dropCacheCmd));
+      Print.error(Op.DROP_CACHE, "Failed to runCommand " + Arrays.toString(dropCacheCmd));
     }
 
     final long safeTime = 5 * 1000L; // sleep extra 5 seconds.
     final long filesPerDisk = (numFiles - 1) / numDisks + 1;
     final long diskSpeed = 100_1000_1000L / 1000; // 100 MB / 1000ms
     final long msPerFile = (fileSize - 1) / diskSpeed + 1;
-    sleepMs(filesPerDisk * msPerFile + safeTime);
+    sleepMs(filesPerDisk * msPerFile + safeTime, Op.DROP_CACHE);
   }
 
   static long writeLocalFileFast(String path, long sizeInBytes) {
@@ -142,10 +145,10 @@ interface Utils {
     for (int i = 0; i < futures.size(); i ++) {
       final long size = futures.get(i).join();
       if (size != fileSize) {
-        Print.error("generateLocalFiles", " Size mismatched " + paths.get(i)
+        Print.error(Op.LOCAL_FILES, " Size mismatched " + paths.get(i)
             + ": writtenSize=" + size + " but expectedSize=" + fileSize);
       } else {
-        Print.ln("generateLocalFiles", "Successfully written " + paths.get(i) + " with size=" + size);
+        Print.ln(Op.LOCAL_FILES, "Successfully written " + paths.get(i) + " with size=" + size);
       }
     }
 

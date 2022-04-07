@@ -45,6 +45,8 @@ import java.util.stream.Collectors;
  * Performance Benchmark
  */
 public class Benchmark {
+  enum Op {PREPARE_LOCAL_FILES, INIT_WRITER}
+
   interface Parameters {
     String getType();
 
@@ -99,7 +101,7 @@ public class Benchmark {
   }
 
   List<String> prepareLocalFiles() throws Exception {
-    Print.ln("PREPARE", this);
+    Print.ln(Op.PREPARE_LOCAL_FILES, this);
 
     final List<File> localDirs = Utils.parseFiles(parameters.getLocalDirs()).stream()
         .map(dir -> new File(dir, id))
@@ -113,42 +115,36 @@ public class Benchmark {
   }
 
   Writer initWriter(List<String> paths, OzoneClient ozoneClient) throws IOException {
+    Print.ln(Op.INIT_WRITER, "OzoneClient " + ozoneClient);
     // An Ozone ObjectStore instance is the entry point to access Ozone.
     final ObjectStore store = ozoneClient.getObjectStore();
-    Print.ln("Ozone", "Store " + store.getCanonicalServiceName());
+    Print.ln(Op.INIT_WRITER, "Store " + store.getCanonicalServiceName());
 
     // Create volume with random name.
     final String volumeName = "bench-vol-" + id;
     store.createVolume(volumeName);
     final OzoneVolume volume = store.getVolume(volumeName);
-    Print.ln("Ozone", "Volume " + volumeName + " created.");
+    Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " created.");
 
     // Create bucket with random name.
     final String bucketName = "bench-buck-" + id;
     volume.createBucket(bucketName);
     final OzoneBucket bucket = volume.getBucket(bucketName);
-    Print.ln("Ozone", "Bucket " + bucketName + " created.");
+    Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " created.");
 
     final ReplicationConfig replication = ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS, ReplicationFactor.THREE);
 
     final Type type = Type.parse(parameters.getType());
-    Print.ln("Type", type);
+    Print.ln(Op.INIT_WRITER, "Type " + type);
     final Writer writer = type.newWrite(paths).init(parameters.getFileSize(), replication, bucket);
-    Print.ln("Init", writer);
+    Print.ln(Op.INIT_WRITER, writer);
     return writer;
-  }
-
-  @Override
-  public String toString() {
-    return "Benchmark-" + id;
   }
 
   void run(Sync.Server launchSync) throws Exception {
     final List<String> paths = prepareLocalFiles();
     // Get an Ozone RPC Client.
     try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm())) {
-      Print.ln("Ozone", "client " + ozoneClient);
-
       final Writer writer = initWriter(paths, ozoneClient);
 
       // wait for sync signal
@@ -160,13 +156,18 @@ public class Benchmark {
           parameters.getFileSize(), parameters.getChunkSize(), executor);
       for (String path : map.keySet()) {
         if (!map.get(path).join()) {
-          Print.error("Benchmark", "Failed to write " + path);
+          Print.error(this, "Failed to write " + path);
         }
       }
 
       final Duration elapsed = Duration.between(start, Instant.now());
       Print.ln(writer + "_ELAPSED", elapsed);
     }
+  }
+
+  @Override
+  public String toString() {
+    return "Benchmark-" + id;
   }
 
   public static void main(String[] args) throws Exception {
