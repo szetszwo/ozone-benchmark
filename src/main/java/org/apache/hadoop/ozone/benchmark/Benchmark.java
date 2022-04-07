@@ -86,8 +86,10 @@ public class Benchmark {
 
     // Get an Ozone RPC Client.
     try(OzoneClient ozoneClient = getOzoneClient(args.getOm())) {
+      Print.ln("Ozone", "client " + ozoneClient);
       // An Ozone ObjectStore instance is the entry point to access Ozone.
       final ObjectStore store = ozoneClient.getObjectStore();
+      Print.ln("Ozone", "store " + store);
 
       // Create volume with random name.
       final String volumeName = args.getVolume();

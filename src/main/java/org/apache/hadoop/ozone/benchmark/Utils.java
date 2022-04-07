@@ -35,11 +35,19 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 interface Utils {
-  static void createDirs(List<File> localDirs) throws IOException {
+  static void createDirs(List<File> localDirs) {
     for (int i = 0; i < localDirs.size(); i++) {
       final Path dir = localDirs.get(i).toPath();
-      Files.deleteIfExists(dir);
-      Files.createDirectories(dir);
+      try {
+        Files.deleteIfExists(dir);
+        Files.createDirectories(dir);
+      } catch (IOException e) {
+        if (Files.isDirectory(dir)) {
+          Print.error("createDirs", "Directory " + dir + " exists", e);
+        } else {
+          throw new IllegalStateException("Failed to process " + dir, e);
+        }
+      }
     }
   }
 
@@ -124,8 +132,8 @@ interface Utils {
 
   static List<String> generateLocalFiles(List<File> localDirs, int numFiles, int fileSize, ExecutorService executor) {
     final UUID uuid = UUID.randomUUID();
-    List<String> paths = new ArrayList<>();
-    List<CompletableFuture<Long>> futures = new ArrayList<>();
+    final List<String> paths = new ArrayList<>();
+    final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
       final String fileName = "file-" + uuid + "-" + i;
       final String path = getPath(fileName, localDirs);
@@ -136,8 +144,10 @@ interface Utils {
     for (int i = 0; i < futures.size(); i ++) {
       final long size = futures.get(i).join();
       if (size != fileSize) {
-        Print.error("generateLocalFiles", "path:" + paths.get(i) + " write:" + size
-            + " mismatch expected size:" + fileSize);
+        Print.error("generateLocalFiles", " Size mismatched " + paths.get(i)
+            + ": writtenSize=" + size + " but expectedSize=" + fileSize);
+      } else {
+        Print.ln("generateLocalFiles", "Successfully written " + paths.get(i) + " with size=" + size);
       }
     }
 
