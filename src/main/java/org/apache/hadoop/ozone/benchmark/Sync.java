@@ -50,6 +50,10 @@ public abstract class Sync {
     return hosts;
   }
 
+  Client newClient() {
+    return new Client(hosts);
+  }
+
   static class Server extends Sync implements Runnable {
     private final ServerSocket serverSocket;
     private final CountDownLatch latch;
@@ -57,13 +61,16 @@ public abstract class Sync {
     public Server(List<String> hosts, int port) throws IOException {
       super(hosts);
       this.serverSocket = new ServerSocket(port);
-      serverSocket.setSoTimeout(1000);
+      this.serverSocket.setSoTimeout(10_000);
 
       final int n = hosts.size();
       this.latch = new CountDownLatch(n);
     }
 
-    void waitAllReady() throws InterruptedException {
+    void readyAndWait(boolean sendReady) throws InterruptedException {
+      if (sendReady) {
+        newClient().sendReady();
+      }
       latch.await();
       Print.ln(this, "ALL_READY at " + serverSocket.getLocalSocketAddress());
     }
@@ -198,12 +205,12 @@ public abstract class Sync {
       final Server server = new Server(hosts, port);
       servers.add(server);
       new Thread(server).start();
-      new Client(hosts).sendReady();
+      server.newClient().sendReady();
 
       TimeUnit.SECONDS.sleep(1);
     }
     for (Server server : servers) {
-      server.waitAllReady();
+      server.readyAndWait(false);
     }
   }
 }

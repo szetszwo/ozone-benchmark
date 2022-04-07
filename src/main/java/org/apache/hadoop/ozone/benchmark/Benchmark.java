@@ -37,12 +37,28 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Performance Benchmark
  */
 public class Benchmark {
+  interface Parameters {
+    String getType();
+
+    String getOm();
+
+    int getFileNum();
+
+    int getFileSize();
+
+    int getChunkSize();
+
+    String getLocalDirs();
+  }
+
   enum Type {
     ASYNC_API(AsyncWriter::new),
     STREAM_API(StreamWriter::new);
@@ -74,49 +90,53 @@ public class Benchmark {
     return OzoneClientFactory.getRpcClient(conf);
   }
 
-  static void benchmark(Cli args, Sync.Server launchSync) throws Exception {
-    final List<File> localDirs = Utils.parse(args.getLocalDirs());
+  static void benchmark(Parameters parameters, Sync.Server launchSync) throws Exception {
+    final String id = String.format("%08x", ThreadLocalRandom.current().nextInt());
+    Print.ln("BENCHMARK_ID", id);
+
+    final List<File> localDirs = Utils.parseFiles(parameters.getLocalDirs()).stream()
+        .map(dir -> new File(dir, id))
+        .collect(Collectors.toList());
     Utils.createDirs(localDirs);
 
     final ExecutorService executor = Executors.newFixedThreadPool(1000);
 
-    final int fileSize = args.getFileSize();
-    final List<String> paths = Utils.generateLocalFiles(localDirs, args.getFileNum(), fileSize, executor);
-    Utils.dropCache(fileSize, args.getFileNum(), localDirs.size());
+    final int fileSize = parameters.getFileSize();
+    final List<String> paths = Utils.generateLocalFiles(localDirs, parameters.getFileNum(), fileSize, executor);
+    Utils.dropCache(fileSize, parameters.getFileNum(), localDirs.size());
 
     // Get an Ozone RPC Client.
-    try(OzoneClient ozoneClient = getOzoneClient(args.getOm())) {
+    try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm())) {
       Print.ln("Ozone", "client " + ozoneClient);
       // An Ozone ObjectStore instance is the entry point to access Ozone.
       final ObjectStore store = ozoneClient.getObjectStore();
       Print.ln("Ozone", "store " + store);
 
       // Create volume with random name.
-      final String volumeName = args.getVolume();
+      final String volumeName = "benchmark-vol-" + id;
       store.createVolume(volumeName);
       final OzoneVolume volume = store.getVolume(volumeName);
-      Print.ln("Ozone", "Volume " + volumeName + " created.");
+      Print.ln("Ozone", "volume " + volumeName + " created.");
 
       // Create bucket with random name.
-      final String bucketName = args.getBucket();
+      final String bucketName = "benchmark-buck-" + id;
       volume.createBucket(bucketName);
       final OzoneBucket bucket = volume.getBucket(bucketName);
-      Print.ln("Ozone", "Bucket " + bucketName + " created.");
+      Print.ln("Ozone", "bucket " + bucketName + " created.");
 
       final ReplicationConfig replication = ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS, ReplicationFactor.THREE);
 
-      final Type type = Type.parse(args.getType());
+      final Type type = Type.parse(parameters.getType());
       Print.ln("Type", type);
       final Writer writer = type.newWrite(paths).init(fileSize, replication, bucket);
       Print.ln("Init", writer);
 
       // wait for sync signal
-      new Sync.Client(launchSync.getHosts()).sendReady();
-      launchSync.waitAllReady();
+      launchSync.readyAndWait(true);
 
       final Instant start = Instant.now();
       // Write key with random name.
-      final Map<String, CompletableFuture<Boolean>> map = writer.write(fileSize, args.getChunkSize(), executor);
+      final Map<String, CompletableFuture<Boolean>> map = writer.write(fileSize, parameters.getChunkSize(), executor);
       for (String path : map.keySet()) {
         if (!map.get(path).join()) {
           Print.error("Benchmark", "Failed to write " + path);
@@ -131,7 +151,8 @@ public class Benchmark {
   public static void main(String[] args) throws Exception {
     final Cli commandArgs = Cli.parse(args);
 
-    final Sync.Server launchSync = new Sync.Server(commandArgs.getClients(), commandArgs.getPort());
+    final List<String> clients = Print.parseCommaSeparatedString(commandArgs.getClients());
+    final Sync.Server launchSync = new Sync.Server(clients, commandArgs.getPort());
     new Thread(launchSync).start();
 
     int exit = 0;

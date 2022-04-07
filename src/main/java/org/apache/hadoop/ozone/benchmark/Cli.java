@@ -20,49 +20,26 @@ package org.apache.hadoop.ozone.benchmark;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
-public interface Cli {
+public interface Cli extends Benchmark.Parameters {
   int MB = 1 << 20;
 
-  String getType();
-
-  List<String> getClients();
+  String getClients();
 
   int getPort();
-
-  String getOm();
-
-  String getVolume();
-
-  String getBucket();
-
-  int getFileNum();
-
-  int getFileSize();
-
-  int getChunkSize();
-
-  String getLocalDirs();
 
   class Args implements Cli {
     @Parameter(names = "-type", description = "STREAM|ASYNC")
     private String type = "STREAM";
 
     @Parameter(names = "-clients", description = "Comma-separated list of benchmark client <host:port> addresses.")
-    private List<String> clients = new ArrayList<>(Collections.singletonList("127.0.0.1"));
+    private String clients = "127.0.0.1";
     @Parameter(names = "-port", description = "Server port for sync.")
     private int port = Sync.DEFAULT_PORT;
 
     @Parameter(names = "-om", description = "Ozone Manager address")
-    private String om = "127.0.0.1";
-    @Parameter(names = "-volume", description = "Ozone Object Store volume name")
-    private String volume = "testVolume";
-    @Parameter(names = "-bucket", description = "Ozone Object Store bucket name")
-    private String bucket = "testBucket";
+    private String om = "";
 
     @Parameter(names = "-fileNum", description = "The number of files.")
     private int fileNum = 10;
@@ -95,7 +72,7 @@ public interface Cli {
     }
 
     @Override
-    public List<String> getClients() {
+    public String getClients() {
       return clients;
     }
     @Override
@@ -106,14 +83,6 @@ public interface Cli {
     @Override
     public String getOm() {
       return om;
-    }
-    @Override
-    public String getVolume() {
-      return volume;
-    }
-    @Override
-    public String getBucket() {
-      return bucket;
     }
     @Override
     public int getFileNum() {
@@ -138,8 +107,6 @@ public interface Cli {
       return clients + ", port=" + port
           + "\n          type = " + type
           + "\n            om = '" + om + '\''
-          + "\n        volume = '" + volume + '\''
-          + "\n        bucket = '" + bucket + '\''
           + "\n       fileNum = " + fileNum
           + "\n      fileSize = " + fileSize
           + "\n     chunkSize = " + chunkSize

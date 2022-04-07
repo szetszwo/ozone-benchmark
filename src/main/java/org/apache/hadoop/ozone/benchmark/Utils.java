@@ -26,12 +26,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 interface Utils {
@@ -60,12 +60,10 @@ interface Utils {
     return new File(getDir(child.hashCode(), localDirs), child).getAbsolutePath();
   }
 
-  static List<File> parse(String commaSeparated) {
-    final List<File> files = new ArrayList<>();
-    for(StringTokenizer t = new StringTokenizer(commaSeparated, ","); t.hasMoreTokens(); ) {
-      files.add(new File(t.nextToken().trim()));
-    }
-    return files;
+  static List<File> parseFiles(String commaSeparated) {
+    return Print.parseCommaSeparatedString(commaSeparated).stream()
+        .map(File::new)
+        .collect(Collectors.toList());
   }
 
   static void runCommand(String... args) {
