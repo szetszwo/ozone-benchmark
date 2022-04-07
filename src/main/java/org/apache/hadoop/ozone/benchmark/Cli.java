@@ -23,8 +23,9 @@ import com.beust.jcommander.Parameter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
-public interface CommandLine {
+public interface Cli {
   int MB = 1 << 20;
 
   String getType();
@@ -47,14 +48,7 @@ public interface CommandLine {
 
   String getLocalDirs();
 
-  static CommandLine parse(String... args) {
-    final Args commandArgs = new Args();
-    JCommander.newBuilder().addObject(commandArgs).build().parse(args);
-    Print.ln("parse", commandArgs);
-    return commandArgs;
-  }
-
-  class Args implements CommandLine {
+  class Args implements Cli {
     @Parameter(names = "-type", description = "STREAM|ASYNC")
     private String type = "STREAM";
 
@@ -70,17 +64,23 @@ public interface CommandLine {
     @Parameter(names = "-bucket", description = "Ozone Object Store bucket name")
     private String bucket = "testBucket";
 
-    @Parameter(names = "-fileNum")
+    @Parameter(names = "-fileNum", description = "The number of files.")
     private int fileNum = 10;
-    @Parameter(names = "-fileSize")
+    @Parameter(names = "-fileSize", description = "The size of each file.")
     private int fileSize = 100 * MB;
-    @Parameter(names = "-chunkSize")
+    @Parameter(names = "-chunkSize", description = "The size of a chunk.")
     private int chunkSize = 2 * MB;
-    @Parameter(names = "-checksum")
+    @Parameter(names = "-checksum", description = "Run with checksum enabled?")
     private boolean checksum = false;
 
     @Parameter(names = "-localDirs")
     private String localDirs = "";
+
+    private final JCommander jCommander = JCommander.newBuilder().addObject(this).build();
+
+    JCommander getJCommander() {
+      return jCommander;
+    }
 
     @Override
     public String getType() {
@@ -137,7 +137,22 @@ public interface CommandLine {
           + "\n      fileSize = " + fileSize
           + "\n     chunkSize = " + chunkSize
           + "\n      checksum = " + checksum
-          + "\n  getLocalDirs = " + getLocalDirs();
+          + "\n     localDirs = " + localDirs;
     }
+  }
+
+  static Cli parse(String... args) {
+    final Args cliArgs = new Args();
+    cliArgs.getJCommander().parse(args);
+    Print.ln("parse", cliArgs);
+    return cliArgs;
+  }
+
+  static void usage() {
+    new Args().getJCommander().usage();
+  }
+
+  static void main(String[] args) {
+    usage();
   }
 }

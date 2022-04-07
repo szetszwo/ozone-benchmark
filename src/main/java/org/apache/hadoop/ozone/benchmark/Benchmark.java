@@ -74,7 +74,7 @@ public class Benchmark {
     return OzoneClientFactory.getRpcClient(conf);
   }
 
-  static void benchmark(CommandLine args, Sync.Server launchSync) throws Exception {
+  static void benchmark(Cli args, Sync.Server launchSync) throws Exception {
     final List<File> localDirs = Utils.parse(args.getLocalDirs());
     Utils.createDirs(localDirs);
 
@@ -127,7 +127,7 @@ public class Benchmark {
   }
 
   public static void main(String[] args) throws Exception {
-    final CommandLine commandArgs = CommandLine.parse(args);
+    final Cli commandArgs = Cli.parse(args);
 
     final Sync.Server launchSync = new Sync.Server(commandArgs.getClients(), commandArgs.getPort());
     new Thread(launchSync).start();
