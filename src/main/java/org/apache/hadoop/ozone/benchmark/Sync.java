@@ -20,22 +20,26 @@ package org.apache.hadoop.ozone.benchmark;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 public abstract class Sync {
-  static final int PORT = 55666;
+  static final int DEFAULT_PORT = 55666;
+
   private final List<String> hosts;
 
   Sync(List<String> hosts) {
@@ -50,18 +54,18 @@ public abstract class Sync {
     private final ServerSocket serverSocket;
     private final CountDownLatch latch;
 
-    public Server(List<String> clients) throws IOException {
-      super(clients);
-      this.serverSocket = new ServerSocket(PORT);
+    public Server(List<String> hosts, int port) throws IOException {
+      super(hosts);
+      this.serverSocket = new ServerSocket(port);
       serverSocket.setSoTimeout(1000);
 
-      final int n = clients.size();
+      final int n = hosts.size();
       this.latch = new CountDownLatch(n);
     }
 
     void waitAllReady() throws InterruptedException {
       latch.await();
-      Print.ln(this, "ALL_READY");
+      Print.ln(this, "ALL_READY at " + serverSocket.getLocalSocketAddress());
     }
 
     boolean accept(Socket accepted) {
@@ -106,11 +110,13 @@ public abstract class Sync {
     @Override
     public void run() {
       final ExecutorService executor = Executors.newFixedThreadPool(getHosts().size());
+      final boolean accepted;
       try {
-        accept(executor);
+        accepted = accept(executor);
       } finally {
         executor.shutdown();
       }
+      Print.ln(this, accepted? "ACCEPTED_ALL": "Failed to accept all: remaining=" + latch.getCount());
     }
 
     @Override
@@ -124,18 +130,43 @@ public abstract class Sync {
       super(clients);
     }
 
+    static InetSocketAddress parseInetSocketAddress(String address) {
+      final int i = address.lastIndexOf(':');
+      final int port = i < 0? DEFAULT_PORT: Integer.parseInt(address.substring(i + 1));
+      final String host = i < 0? address: address.substring(0, i);
+      return new InetSocketAddress(host, port);
+    }
+
     boolean sendReady(String server) {
-      Print.ln(this, "Connecting to " + server + ":" + PORT);
-      try (Socket client = new Socket(server, PORT)) {
-        Print.ln(this, "Connected to " + server + ":" + PORT + " from " + client.getLocalSocketAddress());
+      final InetSocketAddress address = parseInetSocketAddress(server);
+      Print.ln(this, "Connecting to " + server + ", address=" + address);
+      try (Socket client = new Socket(address.getHostName(), address.getPort())) {
+        Print.ln(this, "Connected to " + server + " from " + client.getLocalSocketAddress());
         final DataOutputStream out = new DataOutputStream(client.getOutputStream());
         out.writeUTF("READY_" + client.getLocalSocketAddress());
         final DataInputStream in = new DataInputStream(client.getInputStream());
         Print.ln(this, "Received from server " + server + ": " + in.readUTF());
         return true;
       } catch (IOException e) {
-        Print.error(this, "Failed to set ready to " + server + ":" + PORT, e);
+        Print.error(this, "Failed to sendReady to " + server, e);
         return false;
+      }
+    }
+
+    static boolean retry(Object name, BooleanSupplier supplier) {
+      final Duration sleepTime = Duration.ofSeconds(1);
+      for(int i = 1; ; i++) {
+        final boolean b = supplier.getAsBoolean();
+        if (b) {
+          return true;
+        }
+
+        Print.ln(name, "Failed attempt " + i + "; sleep " + Print.duration2String(sleepTime) + " and retry");
+        try {
+          TimeUnit.SECONDS.sleep(sleepTime.getSeconds());
+        } catch (InterruptedException e) {
+          return false;
+        }
       }
     }
 
@@ -143,7 +174,7 @@ public abstract class Sync {
       final ExecutorService executor = Executors.newFixedThreadPool(getHosts().size());
       try {
         for (String host : getHosts()) {
-          CompletableFuture.supplyAsync(() -> sendReady(host), executor);
+          CompletableFuture.supplyAsync(() -> retry(this + " sendReady", () -> sendReady(host)), executor);
         }
       } finally {
         executor.shutdown();
@@ -157,10 +188,22 @@ public abstract class Sync {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    final List<String> hosts = Collections.singletonList("127.0.0.1");
-    final Sync.Server Sync = new Sync.Server(hosts);
-    new Thread(Sync).start();
-    new Sync.Client(hosts).sendReady();
-    Sync.waitAllReady();
+    final int[] ports = {DEFAULT_PORT, DEFAULT_PORT + 10};
+    final List<String> hosts = new ArrayList<>();
+    final List<Server> servers = new ArrayList<>();
+    for(int port : ports) {
+      hosts.add("127.0.0.1" + (port == DEFAULT_PORT? "": ":" + port));
+    }
+    for (int port : ports) {
+      final Server server = new Server(hosts, port);
+      servers.add(server);
+      new Thread(server).start();
+      new Client(hosts).sendReady();
+
+      TimeUnit.SECONDS.sleep(1);
+    }
+    for (Server server : servers) {
+      server.waitAllReady();
+    }
   }
 }
