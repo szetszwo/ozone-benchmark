@@ -73,13 +73,20 @@ public interface Cli {
     @Parameter(names = "-checksum", description = "Run with checksum enabled?")
     private boolean checksum = false;
 
-    @Parameter(names = "-localDirs")
+    static final String LOCAL_DIR = "-localDirs";
+    @Parameter(names = LOCAL_DIR)
     private String localDirs = "";
 
     private final JCommander jCommander = JCommander.newBuilder().addObject(this).build();
 
     JCommander getJCommander() {
       return jCommander;
+    }
+
+    void assertArgs() {
+      if (localDirs.isEmpty()) {
+        throw new IllegalArgumentException(LOCAL_DIR + " is not set.");
+      }
     }
 
     @Override
@@ -145,6 +152,7 @@ public interface Cli {
     final Args cliArgs = new Args();
     cliArgs.getJCommander().parse(args);
     Print.ln("parse", cliArgs);
+    cliArgs.assertArgs();
     return cliArgs;
   }
 

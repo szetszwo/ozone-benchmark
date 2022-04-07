@@ -23,6 +23,7 @@ import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringTokenizer;
@@ -86,7 +87,12 @@ interface Utils {
   }
 
   static void dropCache(int fileSize, int numFiles, int numDisks) throws InterruptedException {
-    runCommand("/bin/sh","-c","sync; echo 3 > /proc/sys/vm/drop_caches");
+    final String[] dropCacheCmd = {"/bin/sh", "-c", "sync; echo 3 > /proc/sys/vm/drop_caches"};
+    try {
+      runCommand(dropCacheCmd);
+    } catch (Throwable e) {
+      Print.error("dropCache", "Failed to runCommand " + Arrays.toString(dropCacheCmd));
+    }
 
     final long safeTime = 5 * 1000L; // sleep extra 5 seconds.
     final long filesPerDisk = (numFiles - 1) / numDisks + 1;

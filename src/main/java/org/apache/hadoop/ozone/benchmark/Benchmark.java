@@ -81,8 +81,8 @@ public class Benchmark {
     final ExecutorService executor = Executors.newFixedThreadPool(1000);
 
     final int fileSize = args.getFileSize();
-    Utils.dropCache(fileSize, args.getFileNum(), localDirs.size());
     final List<String> paths = Utils.generateLocalFiles(localDirs, args.getFileNum(), fileSize, executor);
+    Utils.dropCache(fileSize, args.getFileNum(), localDirs.size());
 
     // Get an Ozone RPC Client.
     try(OzoneClient ozoneClient = getOzoneClient(args.getOm())) {

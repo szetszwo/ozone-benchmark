@@ -18,8 +18,20 @@
 package org.apache.hadoop.ozone.benchmark;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Print {
+  static private final AtomicInteger ERROR_COUNT = new AtomicInteger();
+
+  static void printErrorCount() {
+    Print.ln("SHUTDOWN", "ERROR_COUNT = " + ERROR_COUNT);
+  }
+
+  static {
+    Runtime.getRuntime().addShutdownHook(new Thread(Print::printErrorCount));
+  }
+
+
   static synchronized void ln(Object name, Object message) {
     System.out.println(format(name, message));
   }
@@ -29,6 +41,7 @@ public class Print {
   }
 
   static synchronized void error(Object name, Object message, Throwable e) {
+    ERROR_COUNT.getAndIncrement();
     error(name, message);
     e.printStackTrace();
   }
