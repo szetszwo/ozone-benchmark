@@ -26,6 +26,7 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,9 +55,9 @@ public class Benchmark {
 
     int getFileNum();
 
-    int getFileSize();
+    String getFileSize();
 
-    int getChunkSize();
+    String getChunkSize();
 
     String getLocalDirs();
   }
@@ -95,9 +96,13 @@ public class Benchmark {
   private final String id = String.format("%08x", ThreadLocalRandom.current().nextInt());
   private final ExecutorService executor = Executors.newFixedThreadPool(1000);
   private final Parameters parameters;
+  private final SizeInBytes fileSize;
+  private final SizeInBytes chunkSize;
 
   Benchmark(Parameters parameters) {
     this.parameters = parameters;
+    this.fileSize = SizeInBytes.valueOf(parameters.getFileSize());
+    this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
   }
 
   List<String> prepareLocalFiles() throws Exception {
@@ -108,7 +113,6 @@ public class Benchmark {
         .collect(Collectors.toList());
     Utils.createDirs(localDirs);
 
-    final int fileSize = parameters.getFileSize();
     final List<String> paths = Utils.generateLocalFiles(localDirs, parameters.getFileNum(), fileSize, executor);
     Utils.dropCache(fileSize, parameters.getFileNum(), localDirs.size());
     return paths;
@@ -136,7 +140,7 @@ public class Benchmark {
 
     final Type type = Type.parse(parameters.getType());
     Print.ln(Op.INIT_WRITER, "Type " + type);
-    final Writer writer = type.newWrite(paths).init(parameters.getFileSize(), replication, bucket);
+    final Writer writer = type.newWrite(paths).init(fileSize.getSize(), replication, bucket);
     Print.ln(Op.INIT_WRITER, writer);
     return writer;
   }
@@ -153,7 +157,7 @@ public class Benchmark {
       final Instant start = Instant.now();
       // Write key with random name.
       final Map<String, CompletableFuture<Boolean>> map = writer.write(
-          parameters.getFileSize(), parameters.getChunkSize(), executor);
+          fileSize.getSize(), chunkSize.getSizeInt(), executor);
       for (String path : map.keySet()) {
         if (!map.get(path).join()) {
           Print.error(this, "Failed to write " + path);

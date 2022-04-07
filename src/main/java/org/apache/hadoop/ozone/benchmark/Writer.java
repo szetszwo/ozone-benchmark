@@ -41,7 +41,7 @@ abstract class Writer {
     return paths.get(i);
   }
 
-  abstract Writer init(int fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException;
+  abstract Writer init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException;
 
-  abstract Map<String, CompletableFuture<Boolean>> write(int fileSize, int chunkSize, ExecutorService executor);
+  abstract Map<String, CompletableFuture<Boolean>> write(long fileSize, int chunkSize, ExecutorService executor);
 }

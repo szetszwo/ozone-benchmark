@@ -21,8 +21,6 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
 interface Cli extends Benchmark.Parameters {
-  int MB = 1 << 20;
-
   String getClients();
 
   int getPort();
@@ -42,9 +40,9 @@ interface Cli extends Benchmark.Parameters {
     @Parameter(names = "-fileNum", description = "The number of files.")
     private int fileNum = 4;
     @Parameter(names = "-fileSize", description = "The size of each file.")
-    private int fileSize = 10 * MB;
+    private String fileSize = "10mb";
     @Parameter(names = "-chunkSize", description = "The size of a chunk.")
-    private int chunkSize = 2 * MB;
+    private String chunkSize = "2mb";
     @Parameter(names = "-checksum", description = "Run with checksum enabled?")
     private boolean checksum = false;
 
@@ -87,11 +85,11 @@ interface Cli extends Benchmark.Parameters {
       return fileNum;
     }
     @Override
-    public int getFileSize() {
+    public String getFileSize() {
       return fileSize;
     }
     @Override
-    public int getChunkSize() {
+    public String getChunkSize() {
       return chunkSize;
     }
 

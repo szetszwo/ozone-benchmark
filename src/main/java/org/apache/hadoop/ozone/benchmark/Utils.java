@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.ozone.benchmark;
 
+import org.apache.ratis.util.SizeInBytes;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -95,7 +97,7 @@ interface Utils {
     }
   }
 
-  static void dropCache(int fileSize, int numFiles, int numDisks) throws InterruptedException {
+  static void dropCache(SizeInBytes fileSize, int numFiles, int numDisks) throws InterruptedException {
     final String[] dropCacheCmd = {"/bin/sh", "-c", "sync; echo 3 > /proc/sys/vm/drop_caches"};
     try {
       runCommand(dropCacheCmd);
@@ -106,7 +108,7 @@ interface Utils {
     final long safeTime = 5 * 1000L; // sleep extra 5 seconds.
     final long filesPerDisk = (numFiles - 1) / numDisks + 1;
     final long diskSpeed = 100_1000_1000L / 1000; // 100 MB / 1000ms
-    final long msPerFile = (fileSize - 1) / diskSpeed + 1;
+    final long msPerFile = (fileSize.getSize() - 1) / diskSpeed + 1;
     sleepMs(filesPerDisk * msPerFile + safeTime, Op.DROP_CACHE);
   }
 
@@ -121,17 +123,17 @@ interface Utils {
     return sizeInBytes;
   }
 
-  static CompletableFuture<Long> writeLocalFileAsync(String path, int sizeInBytes, ExecutorService executor) {
+  static CompletableFuture<Long> writeLocalFileAsync(String path, SizeInBytes sizeInBytes, ExecutorService executor) {
     return CompletableFuture.supplyAsync(() -> {
       try {
-        return writeLocalFileFast(path, sizeInBytes);
+        return writeLocalFileFast(path, sizeInBytes.getSize());
       } catch (Exception e) {
         throw new CompletionException("Failed to write " + path + ", size=" + sizeInBytes, e);
       }
     }, executor);
   }
 
-  static List<String> generateLocalFiles(List<File> localDirs, int numFiles, int fileSize, ExecutorService executor) {
+  static List<String> generateLocalFiles(List<File> localDirs, int numFiles, SizeInBytes fileSize, ExecutorService executor) {
     final UUID uuid = UUID.randomUUID();
     final List<String> paths = new ArrayList<>();
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
@@ -144,7 +146,7 @@ interface Utils {
 
     for (int i = 0; i < futures.size(); i ++) {
       final long size = futures.get(i).join();
-      if (size != fileSize) {
+      if (size != fileSize.getSize()) {
         Print.error(Op.LOCAL_FILES, " Size mismatched " + paths.get(i)
             + ": writtenSize=" + size + " but expectedSize=" + fileSize);
       } else {
