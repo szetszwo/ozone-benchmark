@@ -20,9 +20,7 @@ package org.apache.hadoop.ozone.benchmark;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 
-import java.util.List;
-
-public interface Cli extends Benchmark.Parameters {
+interface Cli extends Benchmark.Parameters {
   int MB = 1 << 20;
 
   String getClients();
@@ -42,9 +40,9 @@ public interface Cli extends Benchmark.Parameters {
     private String om = "";
 
     @Parameter(names = "-fileNum", description = "The number of files.")
-    private int fileNum = 10;
+    private int fileNum = 4;
     @Parameter(names = "-fileSize", description = "The size of each file.")
-    private int fileSize = 100 * MB;
+    private int fileSize = 10 * MB;
     @Parameter(names = "-chunkSize", description = "The size of a chunk.")
     private int chunkSize = 2 * MB;
     @Parameter(names = "-checksum", description = "Run with checksum enabled?")
