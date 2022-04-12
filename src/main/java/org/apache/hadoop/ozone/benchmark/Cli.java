@@ -29,7 +29,7 @@ interface Cli extends Benchmark.Parameters {
     @Parameter(names = "-type", description = "STREAM|ASYNC")
     private String type = "STREAM";
     @Parameter(names = "-id", description = "Benchmark ID")
-    private String id = "";
+    private String id = null;
 
     @Parameter(names = "-clients", description = "Comma-separated list of benchmark client <host:port> addresses.")
     private String clients = "127.0.0.1";
