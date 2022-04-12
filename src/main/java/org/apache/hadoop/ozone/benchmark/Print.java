@@ -30,7 +30,7 @@ public class Print {
 
   static void printShutdownMessage() {
     Print.ln("SHUTDOWN", "**************************************");
-    Print.ln("SHUTDOWN", Duration.between(START, Instant.now()));
+    Print.elapsed("SHUTDOWN", START);
     Print.ln("SHUTDOWN", "ERROR_COUNT = " + ERROR_COUNT);
   }
 
@@ -38,6 +38,10 @@ public class Print {
     Runtime.getRuntime().addShutdownHook(new Thread(Print::printShutdownMessage));
   }
 
+  static void elapsed(Object name, Instant start) {
+    final Duration elapsed = Duration.between(start, Instant.now());
+    Print.ln(name + ": ELAPSED", elapsed);
+  }
 
   static synchronized void ln(Object name, Object message) {
     System.out.println(format(name, message));

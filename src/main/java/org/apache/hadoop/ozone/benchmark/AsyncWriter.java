@@ -72,8 +72,8 @@ public class AsyncWriter extends Writer {
     for(int i = 0; i < getPaths().size(); i ++) {
       final String path = getPath(i);
       final OzoneOutputStream out = outs.get(i);
-      final CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(
-          () -> writeByHeapByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
+      final CompletableFuture<Boolean> future = supplyAsync(
+          path, () -> writeByHeapByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
       fileMap.put(path, future);
     }
     return fileMap;

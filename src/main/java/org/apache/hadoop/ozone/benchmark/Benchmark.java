@@ -30,7 +30,6 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -112,11 +111,15 @@ public class Benchmark {
         .map(dir -> new File(dir, id))
         .map(LocalDir::new)
         .collect(Collectors.toList());
-    Utils.createDirs(Utils.transform(localDirs, LocalDir::getPath));
+    try {
+      Utils.createDirs(Utils.transform(localDirs, LocalDir::getPath));
 
-    final List<String> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize);
-    Utils.dropCache(fileSize, fileNum, localDirs.size());
-    return paths;
+      final List<String> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize);
+      Utils.dropCache(fileSize, fileNum, localDirs.size());
+      return paths;
+    } finally {
+      localDirs.forEach(LocalDir::close);
+    }
   }
 
   Writer initWriter(List<String> paths, OzoneClient ozoneClient) throws IOException {
@@ -165,8 +168,7 @@ public class Benchmark {
         }
       }
 
-      final Duration elapsed = Duration.between(start, Instant.now());
-      Print.ln(writer + "_ELAPSED", elapsed);
+      Print.elapsed(writer, start);
     }
   }
 

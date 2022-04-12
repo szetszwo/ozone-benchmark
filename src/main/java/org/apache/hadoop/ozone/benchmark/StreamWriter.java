@@ -22,11 +22,9 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -76,34 +74,8 @@ public class StreamWriter extends Writer {
     for(int i = 0; i < getPaths().size(); i ++) {
       final String path = getPath(i);
       final OzoneDataStreamOutput out = outs.get(i);
-      final CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(
-          () -> writeByMappedByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
-      fileMap.put(path, future);
-    }
-    return fileMap;
-  }
-
-  static long writeByFileRegion(File file, OzoneDataStreamOutput out) {
-    try (FileInputStream fileInputStream = new FileInputStream(file)) {
-      final FileChannel channel = fileInputStream.getChannel();
-      final long size = channel.size();
-      MappedByteBuffer mappedByteBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, size);
-      out.write(mappedByteBuffer);
-      out.close();
-      return size;
-    } catch (Throwable e) {
-      throw new CompletionException("Failed to process " + file.getAbsolutePath(), e);
-    }
-  }
-
-  static Map<String, CompletableFuture<Boolean>> writeByFileRegion(
-      List<String> paths, List<OzoneDataStreamOutput> outs, int fileSize, ExecutorService executor) {
-    final Map<String, CompletableFuture<Boolean>> fileMap = new HashMap<>();
-    for(int i = 0; i < paths.size(); i ++) {
-      final String path = paths.get(i);
-      final OzoneDataStreamOutput out = outs.get(i);
-      final CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(
-          () -> writeByFileRegion(new File(path), out) == fileSize, executor);
+      final CompletableFuture<Boolean> future = supplyAsync(
+          path, () -> writeByMappedByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
       fileMap.put(path, future);
     }
     return fileMap;

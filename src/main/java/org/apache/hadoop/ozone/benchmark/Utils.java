@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 interface Utils {
-  enum Op {CREATE_DIRS, DROP_CACHE, LOCAL_FILES}
+  enum Op {CREATE_DIRS, COMMAND, DROP_CACHE, LOCAL_FILES}
 
   static <U, V> Iterable<V> transform(Iterable<U> items, Function<U, V> function) {
     final Iterator<U> i = items.iterator();
@@ -88,6 +88,7 @@ interface Utils {
     if (args.length == 0) {
       throw new IllegalArgumentException("args is empty.");
     }
+    Print.ln(Op.COMMAND, Arrays.toString(args));
     final int exitCode;
     try {
       exitCode = Runtime.getRuntime().exec(args).waitFor();
