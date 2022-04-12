@@ -44,4 +44,9 @@ abstract class Writer {
   abstract Writer init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException;
 
   abstract Map<String, CompletableFuture<Boolean>> write(long fileSize, int chunkSize, ExecutorService executor);
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName();
+  }
 }
