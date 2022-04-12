@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -147,20 +148,28 @@ interface Utils {
     return false;
   }
 
-  static CompletableFuture<Long> writeLocalFileAsync(String path, SizeInBytes sizeInBytes, ExecutorService executor) {
+  static CompletableFuture<Long> writeLocalFileAsync(String path, SizeInBytes fileSize, SizeInBytes chunkSize,
+      ExecutorService executor) {
     return CompletableFuture.supplyAsync(() -> {
-      if (existsLocalFile(path, sizeInBytes)) {
-        return sizeInBytes.getSize();
+      if (existsLocalFile(path, fileSize)) {
+        return fileSize.getSize();
+      }
+      final Exception cmdException;
+      try {
+        return writeLocalFileFast(path, fileSize.getSize());
+      } catch (Exception e) {
+        cmdException = e;
       }
       try {
-        return writeLocalFileFast(path, sizeInBytes.getSize());
+        return writeLocalFile(path, fileSize.getSize(), chunkSize.getSizeInt(), ThreadLocalRandom.current().nextInt());
       } catch (Exception e) {
-        throw new CompletionException("Failed to write " + path + ", size=" + sizeInBytes, e);
+        e.addSuppressed(cmdException);
+        throw new CompletionException("Failed to write " + path + ", size=" + fileSize, e);
       }
     }, executor);
   }
 
-  static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize) {
+  static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize, SizeInBytes chunkSize) {
     final List<String> paths = new ArrayList<>();
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
@@ -168,7 +177,7 @@ interface Utils {
       final LocalDir dir = getDir(fileName.hashCode(), localDirs);
       final String path = dir.getChild(fileName).getAbsolutePath();
       paths.add(path);
-      futures.add(writeLocalFileAsync(path, fileSize, dir.getExecutor()));
+      futures.add(writeLocalFileAsync(path, fileSize, chunkSize, dir.getExecutor()));
     }
 
     for (int i = 0; i < futures.size(); i ++) {

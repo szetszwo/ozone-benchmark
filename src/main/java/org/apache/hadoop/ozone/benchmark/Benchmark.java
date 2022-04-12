@@ -108,7 +108,8 @@ public class Benchmark {
     this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
   }
 
-  static List<String> prepareLocalFiles(String id, int fileNum, SizeInBytes fileSize, String localDirsString) throws Exception {
+  static List<String> prepareLocalFiles(String id, int fileNum, SizeInBytes fileSize, SizeInBytes chunkSize,
+      String localDirsString) throws Exception {
     Print.ln(Op.PREPARE_LOCAL_FILES, id + ": fileNum=" + fileNum + ", fileSize=" + fileSize);
 
     final List<LocalDir> localDirs = Utils.parseFiles(localDirsString).stream()
@@ -118,7 +119,7 @@ public class Benchmark {
     try {
       Utils.createDirs(Utils.transform(localDirs, LocalDir::getPath));
 
-      final List<String> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize);
+      final List<String> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize, chunkSize);
       Utils.dropCache(fileSize, fileNum, localDirs.size());
       return paths;
     } finally {
@@ -184,7 +185,7 @@ public class Benchmark {
   }
 
   void run(Sync.Server launchSync) throws Exception {
-    final List<String> paths = prepareLocalFiles(id, parameters.getFileNum(), fileSize, parameters.getLocalDirs());
+    final List<String> paths = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize, parameters.getLocalDirs());
     // Get an Ozone RPC Client.
     try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm())) {
       final Writer writer = initWriter(paths, ozoneClient);
