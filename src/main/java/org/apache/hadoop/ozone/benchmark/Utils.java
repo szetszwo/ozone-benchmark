@@ -58,14 +58,13 @@ interface Utils {
 
   static void createDirs(Iterable<Path> localDirs) {
     for (Path dir : localDirs) {
-      try {
-        Files.deleteIfExists(dir);
-        Files.createDirectories(dir);
-      } catch (IOException e) {
-        if (Files.isDirectory(dir)) {
-          Print.error(Op.CREATE_DIRS, "Directory " + dir + " exists", e);
-        } else {
-          throw new IllegalStateException("Failed to process " + dir, e);
+      if (Files.isDirectory(dir)) {
+        Print.ln(Op.CREATE_DIRS, "Directory " + dir + " exists.");
+      } else {
+        try {
+          Files.createDirectories(dir);
+        } catch (IOException e) {
+          throw new IllegalStateException("Failed to createDirectories " + dir, e);
         }
       }
     }
