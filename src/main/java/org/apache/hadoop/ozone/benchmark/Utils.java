@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -33,15 +34,31 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 interface Utils {
   enum Op {CREATE_DIRS, DROP_CACHE, LOCAL_FILES}
 
-  static void createDirs(List<File> localDirs) {
-    for (int i = 0; i < localDirs.size(); i++) {
-      final Path dir = localDirs.get(i).toPath();
+  static <U, V> Iterable<V> transform(Iterable<U> items, Function<U, V> function) {
+    final Iterator<U> i = items.iterator();
+
+    return () -> new Iterator<V>() {
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public V next() {
+        return function.apply(i.next());
+      }
+    };
+  }
+
+  static void createDirs(Iterable<Path> localDirs) {
+    for (Path dir : localDirs) {
       try {
         Files.deleteIfExists(dir);
         Files.createDirectories(dir);
@@ -55,13 +72,9 @@ interface Utils {
     }
   }
 
-  static File getDir(int hash, List<File> localDirs) {
+  static LocalDir getDir(int hash, List<LocalDir> localDirs) {
     final int i = Math.toIntExact(Integer.toUnsignedLong(hash) % localDirs.size());
     return localDirs.get(i);
-  }
-
-  static String getPath(String child, List<File> localDirs) {
-    return new File(getDir(child.hashCode(), localDirs), child).getAbsolutePath();
   }
 
   static List<File> parseFiles(String commaSeparated) {
@@ -133,15 +146,16 @@ interface Utils {
     }, executor);
   }
 
-  static List<String> generateLocalFiles(List<File> localDirs, int numFiles, SizeInBytes fileSize, ExecutorService executor) {
+  static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize) {
     final UUID uuid = UUID.randomUUID();
     final List<String> paths = new ArrayList<>();
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
       final String fileName = "file-" + uuid + "-" + i;
-      final String path = getPath(fileName, localDirs);
+      final LocalDir dir = getDir(fileName.hashCode(), localDirs);
+      final String path = dir.getChild(fileName).getAbsolutePath();
       paths.add(path);
-      futures.add(writeLocalFileAsync(path, fileSize, executor));
+      futures.add(writeLocalFileAsync(path, fileSize, dir.getExecutor()));
     }
 
     for (int i = 0; i < futures.size(); i ++) {
