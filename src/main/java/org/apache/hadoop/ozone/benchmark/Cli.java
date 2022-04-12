@@ -28,6 +28,8 @@ interface Cli extends Benchmark.Parameters {
   class Args implements Cli {
     @Parameter(names = "-type", description = "STREAM|ASYNC")
     private String type = "STREAM";
+    @Parameter(names = "-id", description = "Benchmark ID")
+    private String id = "";
 
     @Parameter(names = "-clients", description = "Comma-separated list of benchmark client <host:port> addresses.")
     private String clients = "127.0.0.1";
@@ -65,6 +67,11 @@ interface Cli extends Benchmark.Parameters {
     @Override
     public String getType() {
       return type;
+    }
+
+    @Override
+    public String getId() {
+      return id;
     }
 
     @Override

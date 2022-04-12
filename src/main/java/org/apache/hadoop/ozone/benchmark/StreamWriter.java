@@ -45,7 +45,8 @@ public class StreamWriter extends Writer {
   @Override
   public StreamWriter init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException {
     for (int i = 0; i < getPaths().size(); i++) {
-      outs.add(bucket.createStreamKey( "ozonekey_" + i, fileSize, replication, new HashMap<>()));
+      final String key = Benchmark.deleteKeyIfExists(i, bucket);
+      outs.add(bucket.createStreamKey( key, fileSize, replication, new HashMap<>()));
     }
     return this;
   }
@@ -74,7 +75,7 @@ public class StreamWriter extends Writer {
     for(int i = 0; i < getPaths().size(); i ++) {
       final String path = getPath(i);
       final OzoneDataStreamOutput out = outs.get(i);
-      final CompletableFuture<Boolean> future = supplyAsync(
+      final CompletableFuture<Boolean> future = writeAsync(
           path, () -> writeByMappedByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
       fileMap.put(path, future);
     }

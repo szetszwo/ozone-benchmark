@@ -26,6 +26,7 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
 import org.apache.hadoop.ozone.client.OzoneVolume;
+import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -34,10 +35,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,8 @@ public class Benchmark {
 
   interface Parameters {
     String getType();
+
+    String getId();
 
     String getOm();
 
@@ -92,13 +95,14 @@ public class Benchmark {
     return OzoneClientFactory.getRpcClient(conf);
   }
 
-  private final String id = String.format("%08x", ThreadLocalRandom.current().nextInt());
+  private final String id;
   private final ExecutorService executor = Executors.newFixedThreadPool(1000);
   private final Parameters parameters;
   private final SizeInBytes fileSize;
   private final SizeInBytes chunkSize;
 
   Benchmark(Parameters parameters) {
+    this.id = Optional.ofNullable(parameters.getId()).orElseGet(Print::randomId);
     this.parameters = parameters;
     this.fileSize = SizeInBytes.valueOf(parameters.getFileSize());
     this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
@@ -122,24 +126,54 @@ public class Benchmark {
     }
   }
 
+  OzoneVolume initVolume(ObjectStore store) throws IOException {
+    final String volumeName = "bench-vol-" + id;
+    final OzoneVolume exists = store.getVolume(volumeName);
+    if (exists != null) {
+      Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " already exists.");
+      return exists;
+    }
+    store.createVolume(volumeName);
+    Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " created.");
+    return store.getVolume(volumeName);
+  }
+
+  OzoneBucket initBucket(OzoneVolume volume) throws IOException {
+    final String bucketName = "bench-buck-" + id;
+    final OzoneBucket exists = volume.getBucket(bucketName);
+    if (exists != null) {
+      Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " already exists.");
+      return exists;
+    }
+    volume.createBucket(bucketName);
+    Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " created.");
+    return volume.getBucket(bucketName);
+  }
+
+  static String deleteKeyIfExists(int i, OzoneBucket bucket)
+      throws IOException {
+    final String key = String.format("key_%04d", i);
+    if (bucket.getKey(key) != null) {
+      Print.ln(Op.INIT_WRITER, "Key " + key + " already exists; deleting it...");
+      bucket.deleteKey(key);
+    }
+    return key;
+  }
+
+  @FunctionalInterface interface CreateKey {
+    OzoneOutputStream apply(int i) throws IOException;
+  }
+
   Writer initWriter(List<String> paths, OzoneClient ozoneClient) throws IOException {
     Print.ln(Op.INIT_WRITER, "OzoneClient " + ozoneClient);
     // An Ozone ObjectStore instance is the entry point to access Ozone.
     final ObjectStore store = ozoneClient.getObjectStore();
     Print.ln(Op.INIT_WRITER, "Store " + store.getCanonicalServiceName());
 
-    // Create volume with random name.
-    final String volumeName = "bench-vol-" + id;
-    store.createVolume(volumeName);
-    final OzoneVolume volume = store.getVolume(volumeName);
-    Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " created.");
-
+    // Create volume.
+    final OzoneVolume volume = initVolume(store);
     // Create bucket with random name.
-    final String bucketName = "bench-buck-" + id;
-    volume.createBucket(bucketName);
-    final OzoneBucket bucket = volume.getBucket(bucketName);
-    Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " created.");
-
+    final OzoneBucket bucket = initBucket(volume);
     final ReplicationConfig replication = ReplicationConfig.fromTypeAndFactor(ReplicationType.RATIS, ReplicationFactor.THREE);
 
     final Type type = Type.parse(parameters.getType());

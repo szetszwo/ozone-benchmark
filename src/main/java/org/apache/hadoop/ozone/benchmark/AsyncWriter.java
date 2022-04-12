@@ -43,7 +43,8 @@ public class AsyncWriter extends Writer {
   @Override
   public AsyncWriter init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException {
     for (int i = 0; i < getPaths().size(); i++) {
-      outs.add(bucket.createKey( "ozonekey_" + i, fileSize, replication, new HashMap<>()));
+      final String key = Benchmark.deleteKeyIfExists(i, bucket);
+      outs.add(bucket.createKey( key, fileSize, replication, new HashMap<>()));
     }
     return this;
   }
@@ -72,7 +73,7 @@ public class AsyncWriter extends Writer {
     for(int i = 0; i < getPaths().size(); i ++) {
       final String path = getPath(i);
       final OzoneOutputStream out = outs.get(i);
-      final CompletableFuture<Boolean> future = supplyAsync(
+      final CompletableFuture<Boolean> future = writeAsync(
           path, () -> writeByHeapByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
       fileMap.put(path, future);
     }

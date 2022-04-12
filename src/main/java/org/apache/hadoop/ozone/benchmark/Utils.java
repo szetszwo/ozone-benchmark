@@ -29,7 +29,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -137,8 +136,23 @@ interface Utils {
     return sizeInBytes;
   }
 
+  static boolean existsLocalFile(String path, SizeInBytes expectedSize) {
+    final File f = new File(path);
+    if (f.exists()) {
+      try {
+        return Files.size(f.toPath()) == expectedSize.getSize();
+      } catch (Throwable e) {
+        Print.error(Op.LOCAL_FILES, "Failed to get size of " + path + " , expectedSize=" + expectedSize, e);
+      }
+    }
+    return false;
+  }
+
   static CompletableFuture<Long> writeLocalFileAsync(String path, SizeInBytes sizeInBytes, ExecutorService executor) {
     return CompletableFuture.supplyAsync(() -> {
+      if (existsLocalFile(path, sizeInBytes)) {
+        return sizeInBytes.getSize();
+      }
       try {
         return writeLocalFileFast(path, sizeInBytes.getSize());
       } catch (Exception e) {
@@ -148,11 +162,10 @@ interface Utils {
   }
 
   static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize) {
-    final UUID uuid = UUID.randomUUID();
     final List<String> paths = new ArrayList<>();
     final List<CompletableFuture<Long>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
-      final String fileName = "file-" + uuid + "-" + i;
+      final String fileName = String.format("file-%s-%04d", fileSize, i);
       final LocalDir dir = getDir(fileName.hashCode(), localDirs);
       final String path = dir.getChild(fileName).getAbsolutePath();
       paths.add(path);

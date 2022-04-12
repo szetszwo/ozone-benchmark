@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Print {
@@ -62,6 +63,10 @@ public class Print {
       message = duration2String((Duration) message);
     }
     return String.format("%s: %s", name, message);
+  }
+
+  static String randomId() {
+    return String.format("%08x", ThreadLocalRandom.current().nextInt());
   }
 
   static String duration2String(Duration duration) {

@@ -20,7 +20,6 @@ package org.apache.hadoop.ozone.benchmark;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 
-import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -28,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 abstract class Writer {
@@ -50,12 +48,13 @@ abstract class Writer {
 
   abstract Map<String, CompletableFuture<Boolean>> write(long fileSize, int chunkSize, ExecutorService executor);
 
-  CompletableFuture<Boolean> supplyAsync(Object name, Supplier<Boolean> writeMethod, ExecutorService executor) {
+  CompletableFuture<Boolean> writeAsync(Object name, Supplier<Boolean> writeMethod, ExecutorService executor) {
     final Instant start = Instant.now();
+    Print.ln(this, "Start writing to " + name);
     return CompletableFuture.supplyAsync(writeMethod, executor)
         .whenComplete((b, e) -> {
           if (Optional.ofNullable(b).orElse(Boolean.FALSE)) {
-            Print.elapsed(this + ": Successfully wrote " + name, start);
+            Print.elapsed(this + ": Successfully wrote to " + name, start);
           }
         });
   }
