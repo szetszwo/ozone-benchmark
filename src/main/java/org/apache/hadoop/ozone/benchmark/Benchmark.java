@@ -25,8 +25,10 @@ import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
 import org.apache.hadoop.ozone.client.OzoneClientFactory;
+import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
+import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -129,10 +131,13 @@ public class Benchmark {
 
   OzoneVolume initVolume(ObjectStore store) throws IOException {
     final String volumeName = "bench-vol-" + id;
-    final OzoneVolume exists = store.getVolume(volumeName);
-    if (exists != null) {
-      Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " already exists.");
-      return exists;
+    try {
+      final OzoneVolume exists = store.getVolume(volumeName);
+      if (exists != null) {
+        Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " already exists.");
+        return exists;
+      }
+    } catch (OMException e) {
     }
     store.createVolume(volumeName);
     Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " created.");
@@ -141,20 +146,27 @@ public class Benchmark {
 
   OzoneBucket initBucket(OzoneVolume volume) throws IOException {
     final String bucketName = "bench-buck-" + id;
-    final OzoneBucket exists = volume.getBucket(bucketName);
-    if (exists != null) {
-      Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " already exists.");
-      return exists;
+    try {
+      final OzoneBucket exists = volume.getBucket(bucketName);
+      if (exists != null) {
+        Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " already exists.");
+        return exists;
+      }
+    } catch (OMException e) {
     }
     volume.createBucket(bucketName);
     Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " created.");
     return volume.getBucket(bucketName);
   }
 
-  static String deleteKeyIfExists(int i, OzoneBucket bucket)
-      throws IOException {
+  static String deleteKeyIfExists(int i, OzoneBucket bucket) throws IOException {
     final String key = String.format("key_%04d", i);
-    if (bucket.getKey(key) != null) {
+    OzoneKeyDetails exists = null;
+    try {
+      exists = bucket.getKey(key);
+    } catch (OMException e) {
+    }
+    if (exists != null) {
       Print.ln(Op.INIT_WRITER, "Key " + key + " already exists; deleting it...");
       bucket.deleteKey(key);
     }
