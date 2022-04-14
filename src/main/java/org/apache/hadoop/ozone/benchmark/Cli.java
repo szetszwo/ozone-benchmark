@@ -53,6 +53,8 @@ interface Cli extends Benchmark.Parameters {
     private String localDirs = "";
     @Parameter(names = "-dropCache")
     private boolean dropCache = false;
+    @Parameter(names = "-threadNum")
+    private int threadNum = 100;
 
     private final JCommander jCommander = JCommander.newBuilder().addObject(this).build();
 
@@ -110,6 +112,11 @@ interface Cli extends Benchmark.Parameters {
     @Override
     public boolean isDropCache() {
       return dropCache;
+    }
+
+    @Override
+    public int getThreadNum() {
+      return threadNum;
     }
 
     @Override

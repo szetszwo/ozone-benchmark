@@ -66,6 +66,8 @@ public class Benchmark {
     String getLocalDirs();
 
     boolean isDropCache();
+
+    int getThreadNum();
   }
 
   enum Type {
@@ -100,7 +102,6 @@ public class Benchmark {
   }
 
   private final String id;
-  private final ExecutorService executor = Executors.newFixedThreadPool(1000);
   private final Parameters parameters;
   private final SizeInBytes fileSize;
   private final SizeInBytes chunkSize;
@@ -203,7 +204,7 @@ public class Benchmark {
   void run(Sync.Server launchSync) throws Exception {
     final List<String> paths = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize,
         parameters.getLocalDirs(), parameters.isDropCache());
-    // Get an Ozone RPC Client.
+    final ExecutorService executor = Executors.newFixedThreadPool(parameters.getThreadNum());
     try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm())) {
       final Writer writer = initWriter(paths, ozoneClient);
 
@@ -221,6 +222,8 @@ public class Benchmark {
       }
 
       Print.elapsed(writer, start);
+    } finally {
+      executor.shutdown();
     }
   }
 
