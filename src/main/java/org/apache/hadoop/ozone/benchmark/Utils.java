@@ -125,78 +125,81 @@ interface Utils {
     sleepMs(filesPerDisk * msPerFile + safeTime, Op.DROP_CACHE);
   }
 
-  static long writeLocalFileFast(String path, long sizeInBytes) {
+  static void checkSize(File file, SizeInBytes expectedSize) {
+    final long writtenSize;
+    try {
+      writtenSize = Files.size(file.toPath());
+    } catch (Throwable e) {
+      throw new IllegalStateException("Failed to get size:  file=" + file + " , expectedSize=" + expectedSize, e);
+    }
+    if (writtenSize != expectedSize.getSize()) {
+      throw new IllegalStateException("Size mismatched: file=" + file
+          + ", writtenSize = " + writtenSize + " != expectedSize = " + expectedSize);
+    }
+  }
+
+  static void writeLocalFileFast(File file, SizeInBytes fileSize) {
+    final String path = file.getAbsolutePath();
+    final long sizeInBytes = fileSize.getSize();
     final long sizeInMB = (sizeInBytes >> 20) + 1;
     final String[] cmd = {"/bin/bash", "-c",
         "dd if=<(openssl enc -aes-256-ctr -pass pass:\"$(dd if=/dev/urandom bs=128 count=1 2>/dev/null | base64)\" -nosalt < /dev/zero) of="
             + path + " bs=1M count=" + sizeInMB + " iflag=fullblock"};
     runCommand(cmd);
-
     runCommand("/usr/bin/truncate", "--size=" + sizeInBytes, path);
-    return sizeInBytes;
+
+    checkSize(file, fileSize);
   }
 
-  static boolean existsLocalFile(String path, SizeInBytes expectedSize) {
-    final File f = new File(path);
-    if (f.exists()) {
-      try {
-        return Files.size(f.toPath()) == expectedSize.getSize();
-      } catch (Throwable e) {
-        Print.error(Op.LOCAL_FILES, "Failed to get size of " + path + " , expectedSize=" + expectedSize, e);
-      }
+  static File writeLocalFile(String path, SizeInBytes fileSize, SizeInBytes chunkSize) {
+    final File file = new File(path);
+    if (file.exists()) {
+      Print.ln(Op.LOCAL_FILES, "File already exists " + path + " with expected size=" + fileSize);
+      return file;
     }
-    return false;
+    final Exception cmdException;
+    try {
+      writeLocalFileFast(file, fileSize);
+      return file;
+    } catch (Exception e) {
+      cmdException = e;
+    }
+    try {
+      writeLocalFile(file, fileSize.getSize(), chunkSize.getSizeInt(), ThreadLocalRandom.current().nextInt());
+    } catch (Exception e) {
+      e.addSuppressed(cmdException);
+      throw new CompletionException("Failed to write " + path + ", size=" + fileSize, e);
+    }
+    return file;
   }
 
-  static CompletableFuture<Long> writeLocalFileAsync(String path, SizeInBytes fileSize, SizeInBytes chunkSize,
+  static CompletableFuture<Void> writeLocalFileAsync(String path, SizeInBytes fileSize, SizeInBytes chunkSize,
       ExecutorService executor) {
     return CompletableFuture.supplyAsync(() -> {
-      if (existsLocalFile(path, fileSize)) {
-        return fileSize.getSize();
-      }
-      final Exception cmdException;
-      try {
-        return writeLocalFileFast(path, fileSize.getSize());
-      } catch (Exception e) {
-        cmdException = e;
-      }
-      try {
-        return writeLocalFile(path, fileSize.getSize(), chunkSize.getSizeInt(), ThreadLocalRandom.current().nextInt());
-      } catch (Exception e) {
-        e.addSuppressed(cmdException);
-        throw new CompletionException("Failed to write " + path + ", size=" + fileSize, e);
-      }
+      checkSize(writeLocalFile(path, fileSize, chunkSize), fileSize);
+      return null;
     }, executor);
   }
 
   static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize, SizeInBytes chunkSize) {
     final List<String> paths = new ArrayList<>();
-    final List<CompletableFuture<Long>> futures = new ArrayList<>();
+    final List<CompletableFuture<Void>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
-      final String fileName = String.format("file-%s-%04d", fileSize, i);
+      final String fileName = String.format("file-%s-%04d", fileSize, i).replace(" ", "");
       final LocalDir dir = getDir(fileName.hashCode(), localDirs);
       final String path = dir.getChild(fileName).getAbsolutePath();
       paths.add(path);
       futures.add(writeLocalFileAsync(path, fileSize, chunkSize, dir.getExecutor()));
     }
 
-    for (int i = 0; i < futures.size(); i ++) {
-      final long size = futures.get(i).join();
-      if (size != fileSize.getSize()) {
-        Print.error(Op.LOCAL_FILES, " Size mismatched " + paths.get(i)
-            + ": writtenSize=" + size + " but expectedSize=" + fileSize);
-      } else {
-        Print.ln(Op.LOCAL_FILES, "Successfully written " + paths.get(i) + " with size=" + size);
-      }
-    }
-
+    futures.forEach(CompletableFuture::join);
     return paths;
   }
 
-  static long writeLocalFile(String path, long fileSize, int bufferSize, int random) throws IOException {
+  static void writeLocalFile(File file, long fileSize, int bufferSize, int random) throws IOException {
     final byte[] buffer = new byte[bufferSize];
     long offset = 0;
-    try (RandomAccessFile raf = new RandomAccessFile(path, "rw")) {
+    try (RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
       for(; offset < fileSize; ) {
         final long remaining = fileSize - offset;
         final int chunkSize = Math.toIntExact(Math.min(remaining, bufferSize));
@@ -207,6 +210,5 @@ interface Utils {
         offset += chunkSize;
       }
     }
-    return offset;
   }
 }
