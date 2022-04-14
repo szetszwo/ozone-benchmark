@@ -51,6 +51,8 @@ interface Cli extends Benchmark.Parameters {
     static final String LOCAL_DIR = "-localDirs";
     @Parameter(names = LOCAL_DIR)
     private String localDirs = "";
+    @Parameter(names = "-dropCache")
+    private boolean dropCache = false;
 
     private final JCommander jCommander = JCommander.newBuilder().addObject(this).build();
 
@@ -103,6 +105,11 @@ interface Cli extends Benchmark.Parameters {
     @Override
     public String getLocalDirs() {
       return localDirs;
+    }
+
+    @Override
+    public boolean isDropCache() {
+      return dropCache;
     }
 
     @Override
