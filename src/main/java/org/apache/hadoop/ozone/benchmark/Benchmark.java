@@ -104,7 +104,7 @@ public class Benchmark {
   private final SizeInBytes chunkSize;
 
   Benchmark(Parameters parameters) {
-    this.id = Optional.ofNullable(parameters.getId()).orElseGet(Print::randomId);
+    this.id = Optional.ofNullable(parameters.getId()).filter(id -> !id.isEmpty()).orElseGet(Print::randomId);
     this.parameters = parameters;
     this.fileSize = SizeInBytes.valueOf(parameters.getFileSize());
     this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
