@@ -68,6 +68,10 @@ public class Benchmark {
     boolean isDropCache();
 
     int getThreadNum();
+
+    default String getSummary() {
+      return getType() + "[" + getFileNum() + " x " + getFileSize() + "]";
+    }
   }
 
   enum Type {
@@ -221,7 +225,7 @@ public class Benchmark {
         }
       }
 
-      Print.elapsed(writer, start);
+      Print.elapsed(parameters.getSummary(), start);
     } finally {
       executor.shutdown();
     }
