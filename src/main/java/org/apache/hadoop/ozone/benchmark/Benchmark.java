@@ -29,6 +29,7 @@ import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
+import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -102,6 +103,8 @@ public class Benchmark {
     final OzoneConfiguration conf = new OzoneConfiguration();
     conf.set("ozone.om.address", omAddress);
     conf.set("ozone.client.checksum.type", "NONE");
+    conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SHARE_KEY, "true");
+    conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SIZE_KEY, "100");
     return OzoneClientFactory.getRpcClient(conf);
   }
 
