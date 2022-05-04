@@ -17,6 +17,9 @@
  */
 package org.apache.hadoop.ozone.benchmark;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,8 +29,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Print {
-  static private final Instant START = Instant.now();
-  static private final AtomicInteger ERROR_COUNT = new AtomicInteger();
+  static final Logger LOG = LoggerFactory.getLogger(Print.class);
+
+  private static final Instant START = Instant.now();
+  private static final AtomicInteger ERROR_COUNT = new AtomicInteger();
 
   static void printShutdownMessage() {
     Print.ln("SHUTDOWN", "**************************************");
@@ -45,11 +50,11 @@ public class Print {
   }
 
   static synchronized void ln(Object name, Object message) {
-    System.out.println(format(name, message));
+    LOG.info(format(name, message));
   }
 
   static synchronized void error(Object name, Object message) {
-    System.err.println("ERROR " + format(name, message));
+    LOG.error(format(name, message));
   }
 
   static synchronized void error(Object name, Object message, Throwable e) {
