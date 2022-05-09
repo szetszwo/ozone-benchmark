@@ -99,10 +99,13 @@ public class Benchmark {
     }
   }
 
-  static OzoneClient getOzoneClient(String omAddress) throws IOException {
+  static OzoneClient getOzoneClient(String omAddress, SizeInBytes chunkSize) throws IOException {
     final OzoneConfiguration conf = new OzoneConfiguration();
     conf.set("ozone.om.address", omAddress);
     conf.set("ozone.client.checksum.type", "NONE");
+    conf.set("ozone.client.datastream.buffer.flush.size", "1GB");
+    conf.set("ozone.client.datastream.window.size", "1GB");
+    conf.set("ozone.client.datastream.min.packet.size", chunkSize.getSize() + "B");
     conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SHARE_KEY, "true");
     conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SIZE_KEY, "100");
     return OzoneClientFactory.getRpcClient(conf);
@@ -212,7 +215,7 @@ public class Benchmark {
     final List<String> paths = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize,
         parameters.getLocalDirs(), parameters.isDropCache());
     final ExecutorService executor = Executors.newFixedThreadPool(parameters.getThreadNum());
-    try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm())) {
+    try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm(), chunkSize)) {
       final Writer writer = initWriter(paths, ozoneClient);
 
       // wait for sync signal
