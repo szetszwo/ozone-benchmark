@@ -20,7 +20,6 @@ package org.apache.hadoop.ozone.benchmark;
 import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
-import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.hadoop.ozone.client.ObjectStore;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.OzoneClient;
@@ -29,7 +28,6 @@ import org.apache.hadoop.ozone.client.OzoneKeyDetails;
 import org.apache.hadoop.ozone.client.OzoneVolume;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 import org.apache.hadoop.ozone.om.exceptions.OMException;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
@@ -100,16 +98,11 @@ public class Benchmark {
   }
 
   static OzoneClient getOzoneClient(String omAddress, SizeInBytes chunkSize) throws IOException {
-    final OzoneConfiguration conf = new OzoneConfiguration();
+    final BenchmarkConf conf = new BenchmarkConf();
     conf.set("ozone.om.address", omAddress);
-    conf.set("ozone.client.checksum.type", "NONE");
-    conf.set("ozone.client.datastream.buffer.flush.size", "1GB");
-    conf.set("ozone.client.datastream.window.size", "1GB");
     conf.set("ozone.client.datastream.min.packet.size", chunkSize.getSize() + "B");
-    conf.set("ozone.client.datastream.pipeline.mode", "false");
-    conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SHARE_KEY, "true");
-    conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SIZE_KEY, "100");
-    return OzoneClientFactory.getRpcClient(conf);
+    conf.printEntries();
+    return OzoneClientFactory.getRpcClient(conf.getOzoneConfiguration());
   }
 
   private final String id;

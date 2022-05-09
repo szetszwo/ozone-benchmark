@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+  <property>
+    <name>ozone.client.checksum.type</name>
+    <value>NONE</value>
+  </property>
+  <property>
+    <name>ozone.client.datastream.window.size</name>
+    <value>1G</value>
+  </property>
+  <property>
+    <name>ozone.client.datastream.buffer.flush.size</name>
+    <value>1G</value>
+  </property>
+  <property>
+    <name>ozone.client.datastream.pipeline.mode</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>scm.container.client.max.size</name>
+    <value>1</value>
+  </property>
+
+  <property>
+    <name>hdds.ratis.raft.netty.dataStream.client.worker-group.share</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.netty.dataStream.client.worker-group.size</name>
+    <value>100</value>
+  </property>
+
+  <property>
+    <name>hdds.ratis.client.retry.policy</name>
+    <value>org.apache.hadoop.hdds.ratis.retrypolicy.RetryLimitedPolicyCreator</value>
+  </property>
+  <property>
+    <name>hdds.ratis.client.retrylimited.max.retries</name>
+    <value>5</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.client.rpc.request.timeout</name>
+    <value>10s</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.client.rpc.watch.request.timeout</name>
+    <value>30s</value>
+  </property>
+</configuration>
