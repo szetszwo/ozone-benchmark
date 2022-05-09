@@ -100,7 +100,7 @@ public class Benchmark {
   static OzoneClient getOzoneClient(String omAddress, SizeInBytes chunkSize) throws IOException {
     final BenchmarkConf conf = new BenchmarkConf();
     conf.set("ozone.om.address", omAddress);
-    conf.set("ozone.client.datastream.min.packet.size", chunkSize.getSize() + "B");
+    conf.set("ozone.client.datastream.min.packet.size", chunkSize);
     conf.printEntries();
     return OzoneClientFactory.getRpcClient(conf.getOzoneConfiguration());
   }

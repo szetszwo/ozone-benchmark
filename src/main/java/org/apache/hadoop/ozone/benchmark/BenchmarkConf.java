@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.benchmark;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
 import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
 import java.util.Map;
@@ -57,6 +58,24 @@ public class BenchmarkConf {
       return false;
     }
 
+    boolean setValue(SizeInBytes size) {
+      if (size == null) {
+        return false;
+      }
+      if (defaultValue != null) {
+        final SizeInBytes defaultSize = SizeInBytes.valueOf(defaultValue);
+        if (size.getSize() == defaultSize.getSize()) {
+          return false;
+        }
+      }
+      setValue(size.getSize() + "B");
+      return true;
+    }
+
+    String getValue() {
+      return newValue != null? newValue: defaultValue;
+    }
+
     @Override
     public String toString() {
       return newValue != null? newValue + " (custom, default=" + defaultValue + ")"
@@ -86,8 +105,16 @@ public class BenchmarkConf {
   }
 
   void set(String key, String value) {
-    entries.computeIfAbsent(key, k -> new Values(null)).setValue(value);
-    conf.set(key, value);
+    if (entries.computeIfAbsent(key, k -> new Values(null)).setValue(value)) {
+      conf.set(key, value);
+    }
+  }
+
+  void set(String key, SizeInBytes size) {
+    final Values values = entries.computeIfAbsent(key, k -> new Values(null));
+    if (values.setValue(size)) {
+      conf.set(key, values.getValue());
+    }
   }
 
   void printEntries() {
