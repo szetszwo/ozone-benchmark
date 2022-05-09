@@ -106,6 +106,7 @@ public class Benchmark {
     conf.set("ozone.client.datastream.buffer.flush.size", "1GB");
     conf.set("ozone.client.datastream.window.size", "1GB");
     conf.set("ozone.client.datastream.min.packet.size", chunkSize.getSize() + "B");
+    conf.set("ozone.client.datastream.pipeline.mode", "false");
     conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SHARE_KEY, "true");
     conf.set("hdds.ratis." + NettyConfigKeys.DataStream.Client.WORKER_GROUP_SIZE_KEY, "100");
     return OzoneClientFactory.getRpcClient(conf);
