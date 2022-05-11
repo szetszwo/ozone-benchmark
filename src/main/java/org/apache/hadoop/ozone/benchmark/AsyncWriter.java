@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.ozone.benchmark;
 
-import org.apache.hadoop.hdds.client.ReplicationConfig;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -41,10 +39,10 @@ public class AsyncWriter extends Writer {
   }
 
   @Override
-  public AsyncWriter init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException {
+  public AsyncWriter init(long fileSize, OzoneBucket bucket) throws IOException {
     for (int i = 0; i < getPaths().size(); i++) {
       final String key = Benchmark.deleteKeyIfExists(i, bucket);
-      outs.add(bucket.createKey( key, fileSize, replication, new HashMap<>()));
+      outs.add(bucket.createKey( key, fileSize, REPLICATION_CONFIG, new HashMap<>()));
     }
     return this;
   }
@@ -68,15 +66,15 @@ public class AsyncWriter extends Writer {
   }
 
   @Override
-  public Map<String, CompletableFuture<Boolean>> write(long fileSize, int chunkSize, ExecutorService executor) {
-    final Map<String, CompletableFuture<Boolean>> fileMap = new HashMap<>();
+  public List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
+    final List<KeyDescriptor> keys = new ArrayList<>(getPaths().size());
     for(int i = 0; i < getPaths().size(); i ++) {
       final String path = getPath(i);
       final OzoneOutputStream out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
           path, () -> writeByHeapByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
-      fileMap.put(path, future);
+      keys.add(new KeyDescriptor(path, i, future));
     }
-    return fileMap;
+    return keys;
   }
 }

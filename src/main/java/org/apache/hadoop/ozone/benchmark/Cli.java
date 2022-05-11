@@ -45,8 +45,11 @@ interface Cli extends Benchmark.Parameters {
     private String fileSize = "10mb";
     @Parameter(names = "-chunkSize", description = "The size of a chunk.")
     private String chunkSize = "2mb";
-    @Parameter(names = "-checksum", description = "Run with checksum enabled?")
-    private boolean checksum = false;
+
+    @Parameter(names = "-verify", description = "Verify keys?")
+    private boolean verify = false;
+    @Parameter(names = "-messageDigestAlgorithm", description = "MD5|SHA-256")
+    private String messageDigestAlgorithm = "MD5";
 
     static final String LOCAL_DIR = "-localDirs";
     @Parameter(names = LOCAL_DIR)
@@ -105,6 +108,15 @@ interface Cli extends Benchmark.Parameters {
     }
 
     @Override
+    public boolean isVerify() {
+      return verify;
+    }
+    @Override
+    public String getMessageDigestAlgorithm() {
+      return messageDigestAlgorithm;
+    }
+
+    @Override
     public String getLocalDirs() {
       return localDirs;
     }
@@ -127,7 +139,7 @@ interface Cli extends Benchmark.Parameters {
           + "\n       fileNum = " + fileNum
           + "\n      fileSize = " + fileSize
           + "\n     chunkSize = " + chunkSize
-          + "\n      checksum = " + checksum
+          + "\n        verify = " + (verify? messageDigestAlgorithm: "NO")
           + "\n     localDirs = " + localDirs;
     }
   }

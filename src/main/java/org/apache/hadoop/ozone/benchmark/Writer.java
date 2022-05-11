@@ -18,18 +18,61 @@
 package org.apache.hadoop.ozone.benchmark;
 
 import org.apache.hadoop.hdds.client.ReplicationConfig;
+import org.apache.hadoop.hdds.client.ReplicationFactor;
+import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 abstract class Writer {
+  static class KeyDescriptor {
+    private final int index;
+    private final String path;
+    private final CompletableFuture<Boolean> writeFuture;
+    private final CompletableFuture<Boolean> verifyFuture = new CompletableFuture<>();
+
+    KeyDescriptor(String path, int index, CompletableFuture<Boolean> writeFuture) {
+      this.index = index;
+      this.path = path;
+      this.writeFuture = writeFuture;
+    }
+
+    int getIndex() {
+      return index;
+    }
+
+    String getPath() {
+      return path;
+    }
+
+    boolean joinWriteFuture() {
+      return writeFuture.join();
+    }
+
+    boolean joinVerifyFuture() {
+      return verifyFuture.join();
+    }
+
+    void completeVerifyFuture(boolean b) {
+      Print.ln(Benchmark.Op.VERIFY,  "Is " + this + " correctly written? " + b);
+      verifyFuture.complete(b);
+    }
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + "-" + index;
+    }
+  }
+
+  static final ReplicationConfig REPLICATION_CONFIG = ReplicationConfig.fromTypeAndFactor(
+      ReplicationType.RATIS, ReplicationFactor.THREE);
+
   private final List<String> paths;
 
   Writer(List<String> paths) {
@@ -44,9 +87,9 @@ abstract class Writer {
     return paths.get(i);
   }
 
-  abstract Writer init(long fileSize, ReplicationConfig replication, OzoneBucket bucket) throws IOException;
+  abstract Writer init(long fileSize, OzoneBucket bucket) throws IOException;
 
-  abstract Map<String, CompletableFuture<Boolean>> write(long fileSize, int chunkSize, ExecutorService executor);
+  abstract List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor);
 
   CompletableFuture<Boolean> writeAsync(Object name, Supplier<Boolean> writeMethod, ExecutorService executor) {
     final Instant start = Instant.now();
