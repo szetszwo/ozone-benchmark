@@ -86,6 +86,11 @@ public class StreamWriter extends Writer {
       public void write(@NotNull byte[] bytes, int off, int len) throws IOException {
         out.write(ByteBuffer.wrap(bytes, off, len));
       }
+
+      @Override
+      public void close() throws IOException {
+        out.close();
+      }
     }, chunkSize);
   }
 
