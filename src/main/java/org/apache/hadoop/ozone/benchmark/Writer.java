@@ -97,8 +97,13 @@ abstract class Writer {
     Print.ln(this, "Start writing to " + name);
     return CompletableFuture.supplyAsync(writeMethod, executor)
         .whenComplete((b, e) -> {
+          if (e != null) {
+            Print.error(this, "Caught an exception for " + name, e);
+          }
           if (Optional.ofNullable(b).orElse(Boolean.FALSE)) {
             Print.elapsed(this + ": Successfully wrote to " + name, start);
+          } else {
+            Print.error(this, "Failed to write " + name);
           }
         });
   }

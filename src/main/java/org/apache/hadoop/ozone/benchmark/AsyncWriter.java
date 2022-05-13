@@ -72,7 +72,7 @@ public class AsyncWriter extends Writer {
       final File localFile = getLocalFile(i);
       final OzoneOutputStream out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
-          localFile, () -> writeByHeapByteBuffer(localFile, out, chunkSize) == fileSize, executor);
+          localFile.getName(), () -> writeByHeapByteBuffer(localFile, out, chunkSize) == fileSize, executor);
       keys.add(new KeyDescriptor(localFile, i, future));
     }
     return keys;
