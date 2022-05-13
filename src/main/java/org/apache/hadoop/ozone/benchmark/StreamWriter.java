@@ -19,9 +19,11 @@ package org.apache.hadoop.ozone.benchmark;
 
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.OzoneDataStreamOutput;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -67,6 +69,26 @@ public class StreamWriter extends Writer {
     }
   }
 
+  static long writeByByteArray(File file, OzoneDataStreamOutput out, int chunkSize) {
+    return writeByByteArray(file, new OutputStream() {
+      @Override
+      public void write(int b) throws IOException {
+        final byte[] bytes = {(byte) (b & 0xFF)};
+        write(bytes);
+      }
+
+      @Override
+      public void write(@NotNull byte[] bytes) throws IOException {
+        out.write(ByteBuffer.wrap(bytes));
+      }
+
+      @Override
+      public void write(@NotNull byte[] bytes, int off, int len) throws IOException {
+        out.write(ByteBuffer.wrap(bytes, off, len));
+      }
+    }, chunkSize);
+  }
+
   @Override
   public List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
     final List<KeyDescriptor> keys = new ArrayList<>(getLocalFiles().size());
@@ -74,7 +96,7 @@ public class StreamWriter extends Writer {
       final File localFile = getLocalFile(i);
       final OzoneDataStreamOutput out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
-          localFile, () -> writeByMappedByteBuffer(localFile, out, chunkSize) == fileSize, executor);
+          localFile, () -> writeByByteArray(localFile, out, chunkSize) == fileSize, executor);
       keys.add(new KeyDescriptor(localFile, i, future));
     }
     return keys;

@@ -23,11 +23,14 @@ import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
@@ -111,5 +114,23 @@ abstract class Writer {
   @Override
   public String toString() {
     return getClass().getSimpleName();
+  }
+
+  static long writeByByteArray(File file, OutputStream out, int bufferSize) {
+    final byte[] buffer = new byte[bufferSize];
+    int written = 0;
+    try (FileInputStream in = new FileInputStream(file)) {
+      for(;;) {
+        final int read = in.read(buffer, 0, buffer.length);
+        if (read == -1) {
+          out.close();
+          return written;
+        }
+        out.write(buffer, 0, read);
+        written += read;
+      }
+    } catch (Throwable e) {
+      throw new CompletionException("Failed to process " + file.getAbsolutePath(), e);
+    }
   }
 }

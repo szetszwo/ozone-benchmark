@@ -21,13 +21,11 @@ import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.OzoneOutputStream;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
 /** Write using the AsyncApi */
@@ -47,24 +45,6 @@ public class AsyncWriter extends Writer {
     return this;
   }
 
-  static long writeByHeapByteBuffer(File file, OzoneOutputStream out, int bufferSize) {
-    final byte[] buffer = new byte[bufferSize];
-    int written = 0;
-    try (FileInputStream in = new FileInputStream(file)) {
-      for(;;) {
-        final int read = in.read(buffer, 0, buffer.length);
-        if (read == -1) {
-          out.close();
-          return written;
-        }
-        out.write(buffer, 0, read);
-        written += read;
-      }
-    } catch (Throwable e) {
-      throw new CompletionException("Failed to process " + file.getAbsolutePath(), e);
-    }
-  }
-
   @Override
   public List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
     final List<KeyDescriptor> keys = new ArrayList<>(getLocalFiles().size());
@@ -72,7 +52,7 @@ public class AsyncWriter extends Writer {
       final File localFile = getLocalFile(i);
       final OzoneOutputStream out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
-          localFile.getName(), () -> writeByHeapByteBuffer(localFile, out, chunkSize) == fileSize, executor);
+          localFile.getName(), () -> writeByByteArray(localFile, out, chunkSize) == fileSize, executor);
       keys.add(new KeyDescriptor(localFile, i, future));
     }
     return keys;
