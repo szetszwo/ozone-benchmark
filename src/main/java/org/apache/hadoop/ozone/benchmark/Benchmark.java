@@ -32,7 +32,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
@@ -211,7 +210,7 @@ public class Benchmark {
       final List<Writer.KeyDescriptor> keys = writeKeys(writer, executor);
 
       if (parameters.isVerify()) {
-        verifyKeys(keys, bucket);
+        verifyKeys(keys, bucket, executor);
       }
     } finally {
       executor.shutdown();
@@ -237,12 +236,11 @@ public class Benchmark {
     return keys;
   }
 
-  private void verifyKeys(List<Writer.KeyDescriptor> keys, OzoneBucket bucket) {
+  private void verifyKeys(List<Writer.KeyDescriptor> keys, OzoneBucket bucket, ExecutorService executor) {
     final Instant verifyStartTime = Instant.now();
     for (Writer.KeyDescriptor key : keys) {
-      final Verifier verifier = new Verifier(chunkSize.getSizeInt(), parameters.getMessageDigestAlgorithm());
-      CompletableFuture.supplyAsync(() -> verifier.verifyMessageDigest(key, bucket))
-          .thenAccept(key::completeVerifyFuture);
+      new Verifier(chunkSize.getSizeInt(), parameters.getMessageDigestAlgorithm())
+          .verifyMessageDigest(key, bucket, executor);
     }
     int errorCount = 0;
     for (Writer.KeyDescriptor key : keys) {

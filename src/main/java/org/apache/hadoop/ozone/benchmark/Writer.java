@@ -44,8 +44,8 @@ abstract class Writer {
       this.writeFuture = writeFuture;
     }
 
-    int getIndex() {
-      return index;
+    String getKey() {
+      return Benchmark.toKey(index);
     }
 
     File getLocalFile() {
@@ -67,7 +67,7 @@ abstract class Writer {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "[" + Benchmark.toKey(index) + ", " + localFile.getName() + "]";
+      return getClass().getSimpleName() + "[" + getKey() + ", " + getLocalFile().getName() + "]";
     }
   }
 

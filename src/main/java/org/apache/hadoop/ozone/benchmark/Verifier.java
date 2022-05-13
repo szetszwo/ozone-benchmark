@@ -27,7 +27,9 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /** Verifier a remote key with a local file. */
 class Verifier {
@@ -47,29 +49,46 @@ class Verifier {
     }
   }
 
-  boolean verifyMessageDigest(Writer.KeyDescriptor key, OzoneBucket bucket) {
+  void verifyMessageDigest(Writer.KeyDescriptor key, OzoneBucket bucket, ExecutorService executor) {
     Print.ln(Benchmark.Op.VERIFY, "Start verifying " + key);
-    try {
-      final byte[] local = computeMessageDigest(key.getLocalFile(), buffer, getMessageDigest());
-      final byte[] remote = computeMessageDigest(key.getIndex(), bucket, buffer, getMessageDigest());
-      return Arrays.equals(local, remote);
-    } catch (Throwable e) {
-      throw new CompletionException("Failed to verifyMessageDigest for " + key, e);
-    }
+    final CompletableFuture<byte[]> local = computeMessageDigestAsync(key.getLocalFile(), executor);
+    final CompletableFuture<byte[]> remote = computeMessageDigestAsync(key.getKey(), bucket, executor);
+    local.thenCombine(remote, Arrays::equals).thenAccept(key::completeVerifyFuture);
   }
 
-  static byte[] computeMessageDigest(int i, OzoneBucket bucket, byte[] buffer, MessageDigest algorithm) throws IOException {
-    final String key = Benchmark.toKey(i);
-    Print.ln(Benchmark.Op.VERIFY, "computeMessageDigest for remote key " + key);
+  CompletableFuture<byte[]> computeMessageDigestAsync(String key, OzoneBucket bucket, ExecutorService executor) {
+    final String name = "computeMessageDigest for remote key " + key;
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return computeMessageDigest(name, key, bucket);
+      } catch (IOException e) {
+        throw new CompletionException("Failed " + name, e);
+      }
+    }, executor);
+  }
+
+  byte[] computeMessageDigest(String name, String key, OzoneBucket bucket) throws IOException {
+    Print.ln(Benchmark.Op.VERIFY, name);
     try (OzoneInputStream in = bucket.readKey(key)) {
-      return computeMessageDigest(in, buffer, algorithm);
+      return computeMessageDigest(in, buffer, getMessageDigest());
     }
   }
 
-  static byte[] computeMessageDigest(File path, byte[] buffer, MessageDigest algorithm) throws IOException {
-    Print.ln(Benchmark.Op.VERIFY, "computeMessageDigest for local file " + path);
-    try (FileInputStream in = new FileInputStream(path)) {
-      return computeMessageDigest(in, buffer, algorithm);
+  CompletableFuture<byte[]> computeMessageDigestAsync(File localFile, ExecutorService executor) {
+    final String name = "computeMessageDigest for local file " + localFile;
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return computeMessageDigest(name, localFile);
+      } catch (IOException e) {
+        throw new CompletionException("Failed " + name, e);
+      }
+    }, executor);
+  }
+
+  byte[] computeMessageDigest(String name, File localFile) throws IOException {
+    Print.ln(Benchmark.Op.VERIFY, name);
+    try (FileInputStream in = new FileInputStream(localFile)) {
+      return computeMessageDigest(in, buffer, getMessageDigest());
     }
   }
 
