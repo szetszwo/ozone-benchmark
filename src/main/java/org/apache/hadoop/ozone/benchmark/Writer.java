@@ -28,10 +28,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 abstract class Writer {
@@ -95,20 +95,27 @@ abstract class Writer {
 
   abstract List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor);
 
-  CompletableFuture<Boolean> writeAsync(Object name, Supplier<Boolean> writeMethod, ExecutorService executor) {
+  CompletableFuture<Boolean> writeAsync(String name, Supplier<Long> writeMethod, long fileSize, ExecutorService executor) {
     final Instant start = Instant.now();
     Print.ln(this, "Start writing to " + name);
     return CompletableFuture.supplyAsync(writeMethod, executor)
-        .whenComplete((b, e) -> {
-          if (e != null) {
-            Print.error(this, "Caught an exception for " + name, e);
-          }
-          if (Optional.ofNullable(b).orElse(Boolean.FALSE)) {
-            Print.elapsed(this + ": Successfully wrote to " + name, start);
-          } else {
-            Print.error(this, "Failed to write " + name);
-          }
+        .thenApply(verify(name, fileSize, start))
+        .exceptionally(e -> {
+          Print.error(this, "Failed to write " + name, e);
+          return false;
         });
+  }
+
+  Function<Long, Boolean> verify(String name, long fileSize, Instant start) {
+    return writeSize -> {
+      if (writeSize == fileSize) {
+        Print.elapsed(this + ": Completed to write " + name, start);
+        return true;
+      } else {
+        Print.error(this, "Failed to write " + name + ": writeSize = " + writeSize + " != fileSize = " + fileSize);
+        return false;
+      }
+    };
   }
 
   @Override
