@@ -22,6 +22,7 @@ import org.apache.hadoop.hdds.client.ReplicationFactor;
 import org.apache.hadoop.hdds.client.ReplicationType;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 
+import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -33,13 +34,13 @@ import java.util.function.Supplier;
 abstract class Writer {
   static class KeyDescriptor {
     private final int index;
-    private final String path;
+    private final File localFile;
     private final CompletableFuture<Boolean> writeFuture;
     private final CompletableFuture<Boolean> verifyFuture = new CompletableFuture<>();
 
-    KeyDescriptor(String path, int index, CompletableFuture<Boolean> writeFuture) {
+    KeyDescriptor(File localFile, int index, CompletableFuture<Boolean> writeFuture) {
       this.index = index;
-      this.path = path;
+      this.localFile = localFile;
       this.writeFuture = writeFuture;
     }
 
@@ -47,8 +48,8 @@ abstract class Writer {
       return index;
     }
 
-    String getPath() {
-      return path;
+    File getLocalFile() {
+      return localFile;
     }
 
     boolean joinWriteFuture() {
@@ -66,25 +67,25 @@ abstract class Writer {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "-" + index;
+      return getClass().getSimpleName() + "[" + Benchmark.toKey(index) + ", " + localFile.getName() + "]";
     }
   }
 
   static final ReplicationConfig REPLICATION_CONFIG = ReplicationConfig.fromTypeAndFactor(
       ReplicationType.RATIS, ReplicationFactor.THREE);
 
-  private final List<String> paths;
+  private final List<File> localFiles;
 
-  Writer(List<String> paths) {
-    this.paths = paths;
+  Writer(List<File> localFiles) {
+    this.localFiles = localFiles;
   }
 
-  List<String> getPaths() {
-    return paths;
+  List<File> getLocalFiles() {
+    return localFiles;
   }
 
-  String getPath(int i) {
-    return paths.get(i);
+  File getLocalFile(int i) {
+    return localFiles.get(i);
   }
 
   abstract Writer init(long fileSize, OzoneBucket bucket) throws IOException;

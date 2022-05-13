@@ -20,6 +20,7 @@ package org.apache.hadoop.ozone.benchmark;
 import org.apache.hadoop.ozone.client.OzoneBucket;
 import org.apache.hadoop.ozone.client.io.OzoneInputStream;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +50,7 @@ class Verifier {
   boolean verifyMessageDigest(Writer.KeyDescriptor key, OzoneBucket bucket) {
     Print.ln(Benchmark.Op.VERIFY, "Start verifying " + key);
     try {
-      final byte[] local = computeMessageDigest(key.getPath(), buffer, getMessageDigest());
+      final byte[] local = computeMessageDigest(key.getLocalFile(), buffer, getMessageDigest());
       final byte[] remote = computeMessageDigest(key.getIndex(), bucket, buffer, getMessageDigest());
       return Arrays.equals(local, remote);
     } catch (Throwable e) {
@@ -65,7 +66,7 @@ class Verifier {
     }
   }
 
-  static byte[] computeMessageDigest(String path, byte[] buffer, MessageDigest algorithm) throws IOException {
+  static byte[] computeMessageDigest(File path, byte[] buffer, MessageDigest algorithm) throws IOException {
     Print.ln(Benchmark.Op.VERIFY, "computeMessageDigest for local file " + path);
     try (FileInputStream in = new FileInputStream(path)) {
       return computeMessageDigest(in, buffer, algorithm);

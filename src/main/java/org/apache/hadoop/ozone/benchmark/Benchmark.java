@@ -76,13 +76,13 @@ public class Benchmark {
     ASYNC_API(AsyncWriter::new),
     STREAM_API(StreamWriter::new);
 
-    private final Function<List<String>, Writer> constructor;
+    private final Function<List<File>, Writer> constructor;
 
-    Type(Function<List<String>, Writer> constructor) {
+    Type(Function<List<File>, Writer> constructor) {
       this.constructor = constructor;
     }
 
-    Writer newWrite(List<String> paths) {
+    Writer newWrite(List<File> paths) {
       return constructor.apply(paths);
     }
 
@@ -116,7 +116,7 @@ public class Benchmark {
     this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
   }
 
-  static List<String> prepareLocalFiles(String id, int fileNum, SizeInBytes fileSize, SizeInBytes chunkSize,
+  static List<File> prepareLocalFiles(String id, int fileNum, SizeInBytes fileSize, SizeInBytes chunkSize,
       String localDirsString, boolean isDropCache) throws Exception {
     Print.ln(Op.PREPARE_LOCAL_FILES, id + ": fileNum=" + fileNum + ", fileSize=" + fileSize);
 
@@ -127,7 +127,7 @@ public class Benchmark {
     try {
       Utils.createDirs(Utils.transform(localDirs, LocalDir::getPath));
 
-      final List<String> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize, chunkSize);
+      final List<File> paths = Utils.generateLocalFiles(localDirs, fileNum, fileSize, chunkSize);
       if (isDropCache) {
         Utils.dropCache(fileSize, fileNum, localDirs.size());
       }
@@ -186,7 +186,7 @@ public class Benchmark {
   }
 
   void run(Sync.Server launchSync) throws Exception {
-    final List<String> paths = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize,
+    final List<File> localFiles = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize,
         parameters.getLocalDirs(), parameters.isDropCache());
     final ExecutorService executor = Executors.newFixedThreadPool(parameters.getThreadNum());
     try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm(), chunkSize)) {
@@ -202,7 +202,7 @@ public class Benchmark {
 
       final Type type = Type.parse(parameters.getType());
       Print.ln(Op.INIT_WRITER, "Type " + type);
-      final Writer writer = type.newWrite(paths).init(fileSize.getSize(), bucket);
+      final Writer writer = type.newWrite(localFiles).init(fileSize.getSize(), bucket);
       Print.ln(Op.INIT_WRITER, writer);
 
       // wait for sync signal

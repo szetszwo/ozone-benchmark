@@ -36,13 +36,13 @@ import java.util.concurrent.ExecutorService;
 public class StreamWriter extends Writer {
   private final List<OzoneDataStreamOutput> outs = new ArrayList<>();
 
-  StreamWriter(List<String> paths) {
-    super(paths);
+  StreamWriter(List<File> localFiles) {
+    super(localFiles);
   }
 
   @Override
   public StreamWriter init(long fileSize, OzoneBucket bucket) throws IOException {
-    for (int i = 0; i < getPaths().size(); i++) {
+    for (int i = 0; i < getLocalFiles().size(); i++) {
       final String key = Benchmark.deleteKeyIfExists(i, bucket);
       outs.add(bucket.createStreamKey( key, fileSize, REPLICATION_CONFIG, new HashMap<>()));
     }
@@ -69,13 +69,13 @@ public class StreamWriter extends Writer {
 
   @Override
   public List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
-    final List<KeyDescriptor> keys = new ArrayList<>(getPaths().size());
-    for(int i = 0; i < getPaths().size(); i ++) {
-      final String path = getPath(i);
+    final List<KeyDescriptor> keys = new ArrayList<>(getLocalFiles().size());
+    for(int i = 0; i < getLocalFiles().size(); i ++) {
+      final File localFile = getLocalFile(i);
       final OzoneDataStreamOutput out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
-          path, () -> writeByMappedByteBuffer(new File(path), out, chunkSize) == fileSize, executor);
-      keys.add(new KeyDescriptor(path, i, future));
+          localFile, () -> writeByMappedByteBuffer(localFile, out, chunkSize) == fileSize, executor);
+      keys.add(new KeyDescriptor(localFile, i, future));
     }
     return keys;
   }

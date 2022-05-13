@@ -181,14 +181,14 @@ interface Utils {
     }, executor);
   }
 
-  static List<String> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize, SizeInBytes chunkSize) {
-    final List<String> paths = new ArrayList<>();
+  static List<File> generateLocalFiles(List<LocalDir> localDirs, int numFiles, SizeInBytes fileSize, SizeInBytes chunkSize) {
+    final List<File> paths = new ArrayList<>();
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
     for (int i = 0; i < numFiles; i ++) {
       final String fileName = String.format("file-%s-%04d", fileSize, i).replace(" ", "");
       final LocalDir dir = getDir(fileName.hashCode(), localDirs);
       final String path = dir.getChild(fileName).getAbsolutePath();
-      paths.add(path);
+      paths.add(new File(path));
       futures.add(writeLocalFileAsync(path, fileSize, chunkSize, dir.getExecutor()));
     }
 
