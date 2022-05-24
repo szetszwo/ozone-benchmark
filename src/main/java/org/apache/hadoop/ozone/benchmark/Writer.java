@@ -125,7 +125,7 @@ abstract class Writer {
 
   static long writeByByteArray(File file, OutputStream out, int bufferSize) {
     final byte[] buffer = new byte[bufferSize];
-    int written = 0;
+    long written = 0;
     try (FileInputStream in = new FileInputStream(file)) {
       for(;;) {
         final int read = in.read(buffer, 0, buffer.length);
