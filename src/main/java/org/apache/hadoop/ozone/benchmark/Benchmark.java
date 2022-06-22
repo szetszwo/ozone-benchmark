@@ -67,7 +67,7 @@ public class Benchmark {
     int getThreadNum();
 
     default String getSummary() {
-      return getType() + "[" + getFileNum() + " x " + getFileSize() + "]";
+      return getFileNum() + "x" + getFileSize() + "_" + getType() + "_c" + getChunkSize() + "_t" + getThreadNum();
     }
   }
 

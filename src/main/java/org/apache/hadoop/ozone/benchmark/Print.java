@@ -37,7 +37,12 @@ public class Print {
   static void printShutdownMessage() {
     Print.ln("SHUTDOWN", "**************************************");
     Print.elapsed("SHUTDOWN", START);
-    Print.ln("SHUTDOWN", "ERROR_COUNT = " + ERROR_COUNT);
+
+    final int errorCount = ERROR_COUNT.get();
+    Print.ln("SHUTDOWN", "ERROR_COUNT = " + errorCount);
+    if (errorCount > 0) {
+      System.exit(1);
+    }
   }
 
   static {
