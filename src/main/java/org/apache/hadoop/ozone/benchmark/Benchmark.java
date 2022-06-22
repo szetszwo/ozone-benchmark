@@ -73,7 +73,8 @@ public class Benchmark {
 
   enum Type {
     ASYNC_API(AsyncWriter::new),
-    STREAM_API(StreamWriter::new);
+    STREAM_API_MAPPED_BYTE_BUFFER(StreamWriter.WithMappedByteBuffer::new),
+    STREAM_API_BYTE_ARRAY(StreamWriter.WithByteArray::new);
 
     private final Function<List<File>, Writer> constructor;
 

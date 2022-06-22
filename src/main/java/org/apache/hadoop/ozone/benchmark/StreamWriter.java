@@ -35,8 +35,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
 /** Write using the StreamApi */
-public class StreamWriter extends Writer {
+public abstract class StreamWriter extends Writer {
   private final List<OzoneDataStreamOutput> outs = new ArrayList<>();
+
 
   StreamWriter(List<File> localFiles) {
     super(localFiles);
@@ -51,47 +52,63 @@ public class StreamWriter extends Writer {
     return this;
   }
 
-  static long writeByMappedByteBuffer(File file, OzoneDataStreamOutput out, int chunkSize) {
-    try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-      final FileChannel channel = raf.getChannel();
-      long off = 0;
-      for (long len = raf.length(); len > 0; ) {
-        final long writeLen = Math.min(len, chunkSize);
-        final ByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, off, writeLen);
-        out.write(mapped);
-        off += writeLen;
-        len -= writeLen;
+  abstract long write(File file, OzoneDataStreamOutput out, int chunkSize);
+
+  static class WithMappedByteBuffer extends StreamWriter {
+    WithMappedByteBuffer(List<File> localFiles) {
+      super(localFiles);
+    }
+
+    @Override
+    long write(File file, OzoneDataStreamOutput out, int chunkSize) {
+      try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+        final FileChannel channel = raf.getChannel();
+        long off = 0;
+        for (long len = raf.length(); len > 0; ) {
+          final long writeLen = Math.min(len, chunkSize);
+          final ByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, off, writeLen);
+          out.write(mapped);
+          off += writeLen;
+          len -= writeLen;
+        }
+        out.close();
+        return off;
+      } catch (Throwable e) {
+        throw new CompletionException("Failed to process " + file.getAbsolutePath(), e);
       }
-      out.close();
-      return off;
-    } catch (Throwable e) {
-      throw new CompletionException("Failed to process " + file.getAbsolutePath(), e);
     }
   }
 
-  static long writeByByteArray(File file, OzoneDataStreamOutput out, int chunkSize) {
-    return writeByByteArray(file, new OutputStream() {
-      @Override
-      public void write(int b) throws IOException {
-        final byte[] bytes = {(byte) (b & 0xFF)};
-        write(bytes);
-      }
+  static class WithByteArray extends StreamWriter {
+    WithByteArray(List<File> localFiles) {
+      super(localFiles);
+    }
 
-      @Override
-      public void write(@NotNull byte[] bytes) throws IOException {
-        out.write(ByteBuffer.wrap(bytes));
-      }
+    @Override
+    long write(File file, OzoneDataStreamOutput out, int chunkSize) {
+      return writeByByteArray(file, new OutputStream() {
+        @Override
+        public void write(int b) throws IOException {
+          final byte[] bytes = {(byte) (b & 0xFF)};
+          write(bytes);
+        }
 
-      @Override
-      public void write(@NotNull byte[] bytes, int off, int len) throws IOException {
-        out.write(ByteBuffer.wrap(bytes, off, len));
-      }
+        @Override
+        public void write(@NotNull byte[] bytes) throws IOException {
+          out.write(ByteBuffer.wrap(bytes));
+        }
 
-      @Override
-      public void close() throws IOException {
-        out.close();
-      }
-    }, chunkSize);
+        @Override
+        public void write(@NotNull byte[] bytes, int off, int len) throws IOException {
+          out.write(ByteBuffer.wrap(bytes, off, len));
+        }
+
+        @Override
+        public void close() throws IOException {
+          out.close();
+        }
+      }, chunkSize);
+    }
   }
 
   @Override
@@ -101,7 +118,7 @@ public class StreamWriter extends Writer {
       final File localFile = getLocalFile(i);
       final OzoneDataStreamOutput out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
-          localFile.getName(), () -> writeByByteArray(localFile, out, chunkSize), fileSize, executor);
+          localFile.getName(), () -> write(localFile, out, chunkSize), fileSize, executor);
       keys.add(new KeyDescriptor(localFile, i, future));
     }
     return keys;
