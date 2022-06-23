@@ -232,6 +232,8 @@ public class Benchmark {
     }
     if (errorCount > 0) {
       throw new IllegalStateException("Failed to write " + errorCount + " keys.");
+    } else {
+      Print.ln(writer, "All " + keys.size() + " keys are written.");
     }
     Print.elapsed(parameters.getSummary(), writeStartTime);
     return keys;
@@ -252,6 +254,8 @@ public class Benchmark {
     }
     if (errorCount > 0) {
       throw new IllegalStateException("Failed to verify " + errorCount + " keys.");
+    } else {
+      Print.ln(Op.VERIFY, "All " + keys.size() + " keys are verified.");
     }
     Print.elapsed(Op.VERIFY, verifyStartTime);
   }
