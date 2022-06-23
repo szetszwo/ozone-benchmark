@@ -40,9 +40,6 @@ public class Print {
 
     final int errorCount = ERROR_COUNT.get();
     Print.ln("SHUTDOWN", "ERROR_COUNT = " + errorCount);
-    if (errorCount > 0) {
-      System.exit(1);
-    }
   }
 
   static {
@@ -64,6 +61,11 @@ public class Print {
 
   static synchronized void error(Object name, Object message, Throwable e) {
     ERROR_COUNT.getAndIncrement();
+    error(name, message);
+    e.printStackTrace();
+  }
+
+  static synchronized void warn(Object name, Object message, Throwable e) {
     error(name, message);
     e.printStackTrace();
   }

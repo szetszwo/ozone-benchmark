@@ -155,7 +155,7 @@ public abstract class Sync {
         Print.ln(this, "Received from server " + server + ": " + in.readUTF());
         return true;
       } catch (IOException e) {
-        Print.error(this, "Failed to sendReady to " + server, e);
+        Print.warn(this, "Failed to sendReady to " + server, e);
         return false;
       }
     }
