@@ -132,13 +132,20 @@ interface Cli extends Benchmark.Parameters {
     }
 
     @Override
+    public String getSummary() {
+      final int n = Print.parseCommaSeparatedString(getClients()).size();
+      final String clientString = n <= 1? "": n + "clients_";
+      return clientString + Cli.super.getSummary();
+    }
+
+    @Override
     public String toString() {
-      return clients + ", port=" + port
+      return clients + ", port=" + port + ", om=" + om
           + "\n          type = " + type
-          + "\n            om = '" + om + '\''
           + "\n       fileNum = " + fileNum
           + "\n      fileSize = " + fileSize
           + "\n     chunkSize = " + chunkSize
+          + "\n     threadNum = " + threadNum
           + "\n        verify = " + (verify? messageDigestAlgorithm: "NO")
           + "\n     localDirs = " + localDirs;
     }
