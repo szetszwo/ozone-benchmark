@@ -27,12 +27,15 @@ CHUNK_SIZE=8m
 THREAD_NUM=32
 
 DATETIME=`date +%Y%m%d-%H%M`; \
-F=output-3clients_${FILE_NUM}x${FILE_SIZE}_${TYPE}_c${CHUNK_SIZE}_t${THREAD_NUM}_${DATETIME}.txt; \
+NUM_CLIENTS=`echo ${CLIENTS} | sed -e "s/,/ /g" | sed -e "s/;/ /g" | wc -w`; \
+if [ ${NUM_CLIENTS} -eq 0 ] ; then NUM_CLIENTS=1;  fi ; echo $NUM_CLIENTS; \
+F=output-${NUM_CLIENTS}c_${FILE_NUM}x${FILE_SIZE}_${TYPE}_c${CHUNK_SIZE}_t${THREAD_NUM}_${DATETIME}.txt; \
   java -Xms64g -Xmx64g org.apache.hadoop.ozone.benchmark.Benchmark \
   -om ${OM} -localDirs ${LOCAL_ROOT}/benchmark-dir/ \
   -verify \
   -type ${TYPE} -id ${BENCHMARK_ID} -threadNum ${THREAD_NUM} \
   -fileNum ${FILE_NUM} -fileSize ${FILE_SIZE} -chunkSize ${CHUNK_SIZE} \
   -clients ${CLIENTS} \ 
-  | tee ${F}
+  | tee ${F} ; \
+echo ${F}
 ```

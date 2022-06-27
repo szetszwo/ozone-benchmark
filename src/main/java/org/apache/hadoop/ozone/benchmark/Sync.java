@@ -68,7 +68,7 @@ public abstract class Sync {
     }
 
     void readyAndWait(boolean sendReady) throws InterruptedException {
-      if (sendReady) {
+      if (sendReady && !getHosts().isEmpty()) {
         newClient().sendReady();
       }
       latch.await();
