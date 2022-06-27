@@ -27,14 +27,25 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 abstract class Writer {
+  enum State {
+    WRITING,
+    WRITE_FAILED,
+    WRITE_SUCCEEDED,
+    VERIFY_FAILED,
+    VERIFY_SUCCEEDED,
+  }
+
   static class KeyDescriptor {
     private final int index;
     private final File localFile;
@@ -55,6 +66,18 @@ abstract class Writer {
       return localFile;
     }
 
+    State getState() {
+      if (verifyFuture.isDone()) {
+        return verifyFuture.isCompletedExceptionally() || verifyFuture.isCancelled()? State.VERIFY_FAILED
+            : State.VERIFY_SUCCEEDED;
+      }
+      if (writeFuture.isDone()) {
+        return writeFuture.isCompletedExceptionally() || writeFuture.isCancelled()? State.WRITE_FAILED
+            : State.WRITE_SUCCEEDED;
+      }
+      return State.WRITING;
+    }
+
     boolean joinWriteFuture() {
       return writeFuture.join();
     }
@@ -71,6 +94,37 @@ abstract class Writer {
     @Override
     public String toString() {
       return getClass().getSimpleName() + "[" + getKey() + ", " + getLocalFile().getName() + "]";
+    }
+  }
+
+  static class KeyCountRunnable implements Runnable {
+    private final List<KeyDescriptor> keys;
+
+    KeyCountRunnable(List<KeyDescriptor> keys) {
+      this.keys = keys;
+    }
+
+    @Override
+    public void run() {
+      for(;;) {
+        final EnumMap<State, AtomicInteger> counters = new EnumMap<>(State.class);
+        for(State s : State.values()) {
+          counters.put(s, new AtomicInteger());
+        }
+        for(KeyDescriptor k : keys) {
+          counters.get(k.getState()).incrementAndGet();
+        }
+        Print.ln("COUNTS", counters);
+
+        if (counters.get(State.WRITING).get() == 0) {
+          return;
+        }
+        try {
+          TimeUnit.SECONDS.sleep(10);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
     }
   }
 
@@ -93,20 +147,26 @@ abstract class Writer {
 
   abstract Writer init(long fileSize, OzoneBucket bucket) throws IOException;
 
-  abstract List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor);
+  List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
+    final List<KeyDescriptor> keys = writeImpl(fileSize, chunkSize, executor);
+    new Thread(new KeyCountRunnable(keys)).start();
+    return keys;
+  }
+
+  abstract List<KeyDescriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor);
 
   CompletableFuture<Boolean> writeAsync(String name, Supplier<Long> writeMethod, long fileSize, ExecutorService executor) {
     final Instant start = Instant.now();
     Print.ln(this, "Start writing to " + name);
     return CompletableFuture.supplyAsync(writeMethod, executor)
-        .thenApply(verify(name, fileSize, start))
+        .thenApply(checkSize(name, fileSize, start))
         .exceptionally(e -> {
           Print.error(this, "Failed to write " + name, e);
           return false;
         });
   }
 
-  Function<Long, Boolean> verify(String name, long fileSize, Instant start) {
+  Function<Long, Boolean> checkSize(String name, long fileSize, Instant start) {
     return writeSize -> {
       if (writeSize == fileSize) {
         Print.elapsed(this + ": Completed to write " + name, start);

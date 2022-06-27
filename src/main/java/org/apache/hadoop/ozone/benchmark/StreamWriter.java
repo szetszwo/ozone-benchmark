@@ -112,7 +112,7 @@ public abstract class StreamWriter extends Writer {
   }
 
   @Override
-  public List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
+  public List<KeyDescriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor) {
     final List<KeyDescriptor> keys = new ArrayList<>(getLocalFiles().size());
     for(int i = 0; i < getLocalFiles().size(); i ++) {
       final File localFile = getLocalFile(i);
