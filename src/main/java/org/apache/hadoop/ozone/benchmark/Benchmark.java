@@ -17,17 +17,9 @@
  */
 package org.apache.hadoop.ozone.benchmark;
 
-import org.apache.hadoop.ozone.client.ObjectStore;
-import org.apache.hadoop.ozone.client.OzoneBucket;
-import org.apache.hadoop.ozone.client.OzoneClient;
-import org.apache.hadoop.ozone.client.OzoneClientFactory;
-import org.apache.hadoop.ozone.client.OzoneKeyDetails;
-import org.apache.hadoop.ozone.client.OzoneVolume;
-import org.apache.hadoop.ozone.om.exceptions.OMException;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.io.File;
-import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -74,7 +66,8 @@ public class Benchmark {
   enum Type {
     ASYNC_API(AsyncWriter::new),
     STREAM_API_MAPPED_BYTE_BUFFER(StreamWriter.WithMappedByteBuffer::new),
-    STREAM_API_BYTE_ARRAY(StreamWriter.WithByteArray::new);
+    STREAM_API_BYTE_ARRAY(StreamWriter.WithByteArray::new),
+    HDFS(HdfsWriter::new);
 
     private final Function<List<File>, Writer> constructor;
 
@@ -96,14 +89,6 @@ public class Benchmark {
     }
   }
 
-  static OzoneClient getOzoneClient(String omAddress, SizeInBytes chunkSize) throws IOException {
-    final BenchmarkConf conf = new BenchmarkConf();
-    conf.set("ozone.om.address", omAddress);
-    conf.set("ozone.client.datastream.min.packet.size", chunkSize);
-    conf.printEntries();
-    return OzoneClientFactory.getRpcClient(conf.getOzoneConfiguration());
-  }
-
   private final String id;
   private final Parameters parameters;
   private final SizeInBytes fileSize;
@@ -114,6 +99,22 @@ public class Benchmark {
     this.parameters = parameters;
     this.fileSize = SizeInBytes.valueOf(parameters.getFileSize());
     this.chunkSize = SizeInBytes.valueOf(parameters.getChunkSize());
+  }
+
+  String getId() {
+    return id;
+  }
+
+  Parameters getParameters() {
+    return parameters;
+  }
+
+  SizeInBytes getFileSize() {
+    return fileSize;
+  }
+
+  SizeInBytes getChunkSize() {
+    return chunkSize;
   }
 
   static List<File> prepareLocalFiles(String id, int fileNum, SizeInBytes fileSize, SizeInBytes chunkSize,
@@ -137,94 +138,40 @@ public class Benchmark {
     }
   }
 
-  OzoneVolume initVolume(ObjectStore store) throws IOException {
-    final String volumeName = "bench-vol-" + id;
-    try {
-      final OzoneVolume exists = store.getVolume(volumeName);
-      if (exists != null) {
-        Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " already exists.");
-        return exists;
-      }
-    } catch (OMException ignored) {
-    }
-    store.createVolume(volumeName);
-    Print.ln(Op.INIT_WRITER, "Volume " + volumeName + " created.");
-    return store.getVolume(volumeName);
-  }
-
-  OzoneBucket initBucket(OzoneVolume volume) throws IOException {
-    final String bucketName = "bench-buck-" + id;
-    try {
-      final OzoneBucket exists = volume.getBucket(bucketName);
-      if (exists != null) {
-        Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " already exists.");
-        return exists;
-      }
-    } catch (OMException ignored) {
-    }
-    volume.createBucket(bucketName);
-    Print.ln(Op.INIT_WRITER, "Bucket " + bucketName + " created.");
-    return volume.getBucket(bucketName);
-  }
-
-  static String toKey(int i) {
-    return String.format("key_%04d", i);
-  }
-
-  static String deleteKeyIfExists(int i, OzoneBucket bucket) throws IOException {
-    final String key = toKey(i);
-    OzoneKeyDetails exists = null;
-    try {
-      exists = bucket.getKey(key);
-    } catch (OMException ignored) {
-    }
-    if (exists != null) {
-      Print.ln(Op.INIT_WRITER, "Key " + key + " already exists; deleting it...");
-      bucket.deleteKey(key);
-    }
-    return key;
+  static String toItemName(int i) {
+    return String.format("item_%04d", i);
   }
 
   void run(Sync.Server launchSync) throws Exception {
     final List<File> localFiles = prepareLocalFiles(id, parameters.getFileNum(), fileSize, chunkSize,
         parameters.getLocalDirs(), parameters.isDropCache());
     final ExecutorService executor = Executors.newFixedThreadPool(parameters.getThreadNum());
-    try(OzoneClient ozoneClient = getOzoneClient(parameters.getOm(), chunkSize)) {
-      Print.ln(Op.INIT_WRITER, "OzoneClient " + ozoneClient);
-      // An Ozone ObjectStore instance is the entry point to access Ozone.
-      final ObjectStore store = ozoneClient.getObjectStore();
-      Print.ln(Op.INIT_WRITER, "Store " + store.getCanonicalServiceName());
-
-      // Create volume.
-      final OzoneVolume volume = initVolume(store);
-      // Create bucket with random name.
-      final OzoneBucket bucket = initBucket(volume);
-
-      final Type type = Type.parse(parameters.getType());
-      Print.ln(Op.INIT_WRITER, "Type " + type);
-      final Writer writer = type.newWrite(localFiles).init(fileSize.getSize(), bucket);
+    final Type type = Type.parse(parameters.getType());
+    Print.ln(Op.INIT_WRITER, "Type " + type);
+    try(Writer writer = type.newWrite(localFiles)) {
+      writer.init(this);
       Print.ln(Op.INIT_WRITER, writer);
 
       // wait for sync signal
       launchSync.readyAndWait(true);
 
-      final List<Writer.KeyDescriptor> keys = writeKeys(writer, executor);
+      final List<Writer.Descriptor> keys = writeKeys(writer, executor);
 
       if (parameters.isVerify()) {
-        verifyKeys(keys, bucket, executor);
+        writer.verify(parameters, chunkSize, keys, executor);
       }
     } finally {
       executor.shutdown();
     }
   }
 
-  private List<Writer.KeyDescriptor> writeKeys(Writer writer, ExecutorService executor) {
+  private List<Writer.Descriptor> writeKeys(Writer writer, ExecutorService executor) {
     // Write keys
     final Instant writeStartTime = Instant.now();
-    final List<Writer.KeyDescriptor> keys = writer.write(
+    final List<Writer.Descriptor> keys = writer.write(
         fileSize.getSize(), chunkSize.getSizeInt(), executor);
     int errorCount = 0;
-    for (Writer.KeyDescriptor key : keys) {
+    for (Writer.Descriptor key : keys) {
       if (!key.joinWriteFuture()) {
         Print.error(this, "Failed to write " + key);
         errorCount++;
@@ -237,27 +184,6 @@ public class Benchmark {
     }
     Print.elapsed(parameters.getSummary(), writeStartTime);
     return keys;
-  }
-
-  private void verifyKeys(List<Writer.KeyDescriptor> keys, OzoneBucket bucket, ExecutorService executor) {
-    final Instant verifyStartTime = Instant.now();
-    for (Writer.KeyDescriptor key : keys) {
-      new Verifier(chunkSize.getSizeInt(), parameters.getMessageDigestAlgorithm())
-          .verifyMessageDigest(key, bucket, executor);
-    }
-    int errorCount = 0;
-    for (Writer.KeyDescriptor key : keys) {
-      if (!key.joinVerifyFuture()) {
-        Print.error(this, "Failed to verify " + key);
-        errorCount++;
-      }
-    }
-    if (errorCount > 0) {
-      throw new IllegalStateException("Failed to verify " + errorCount + " keys.");
-    } else {
-      Print.ln(Op.VERIFY, "All " + keys.size() + " keys are verified.");
-    }
-    Print.elapsed(Op.VERIFY, verifyStartTime);
   }
 
   @Override

@@ -35,7 +35,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 
 /** Write using the StreamApi */
-public abstract class StreamWriter extends Writer {
+public abstract class StreamWriter extends OzoneWriter {
   private final List<OzoneDataStreamOutput> outs = new ArrayList<>();
 
 
@@ -44,12 +44,12 @@ public abstract class StreamWriter extends Writer {
   }
 
   @Override
-  public StreamWriter init(long fileSize, OzoneBucket bucket) throws IOException {
+  public void init(long fileSize) throws IOException {
+    final OzoneBucket bucket = getBucket();
     for (int i = 0; i < getLocalFiles().size(); i++) {
-      final String key = Benchmark.deleteKeyIfExists(i, bucket);
+      final String key = deleteKeyIfExists(i, bucket);
       outs.add(bucket.createStreamKey( key, fileSize, REPLICATION_CONFIG, new HashMap<>()));
     }
-    return this;
   }
 
   abstract long write(File file, OzoneDataStreamOutput out, int chunkSize);
@@ -112,14 +112,14 @@ public abstract class StreamWriter extends Writer {
   }
 
   @Override
-  public List<KeyDescriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor) {
-    final List<KeyDescriptor> keys = new ArrayList<>(getLocalFiles().size());
+  public List<Descriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor) {
+    final List<Descriptor> keys = new ArrayList<>(getLocalFiles().size());
     for(int i = 0; i < getLocalFiles().size(); i ++) {
       final File localFile = getLocalFile(i);
       final OzoneDataStreamOutput out = outs.get(i);
       final CompletableFuture<Boolean> future = writeAsync(
           localFile.getName(), () -> write(localFile, out, chunkSize), fileSize, executor);
-      keys.add(new KeyDescriptor(localFile, i, future));
+      keys.add(new Descriptor(localFile, i, future));
     }
     return keys;
   }

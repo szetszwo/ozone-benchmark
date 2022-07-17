@@ -17,11 +17,9 @@
  */
 package org.apache.hadoop.ozone.benchmark;
 
-import org.apache.hadoop.hdds.client.ReplicationConfig;
-import org.apache.hadoop.hdds.client.ReplicationFactor;
-import org.apache.hadoop.hdds.client.ReplicationType;
-import org.apache.hadoop.ozone.client.OzoneBucket;
+import org.apache.ratis.util.SizeInBytes;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -34,10 +32,11 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-abstract class Writer {
+abstract class Writer implements Closeable {
   enum State {
     WRITING,
     WRITE_FAILED,
@@ -46,20 +45,24 @@ abstract class Writer {
     VERIFY_SUCCEEDED,
   }
 
-  static class KeyDescriptor {
+  static class Descriptor {
     private final int index;
     private final File localFile;
     private final CompletableFuture<Boolean> writeFuture;
     private final CompletableFuture<Boolean> verifyFuture = new CompletableFuture<>();
 
-    KeyDescriptor(File localFile, int index, CompletableFuture<Boolean> writeFuture) {
+    Descriptor(File localFile, int index, CompletableFuture<Boolean> writeFuture) {
       this.index = index;
       this.localFile = localFile;
       this.writeFuture = writeFuture;
     }
 
-    String getKey() {
-      return Benchmark.toKey(index);
+    int getIndex() {
+      return index;
+    }
+
+    String getItemName() {
+      return Benchmark.toItemName(index);
     }
 
     File getLocalFile() {
@@ -93,15 +96,15 @@ abstract class Writer {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "[" + getKey() + ", " + getLocalFile().getName() + "]";
+      return getClass().getSimpleName() + "[" + getItemName() + ", " + getLocalFile().getName() + "]";
     }
   }
 
-  static class KeyCountRunnable implements Runnable {
-    private final List<KeyDescriptor> keys;
+  static class DescriptorCountRunnable implements Runnable {
+    private final List<Descriptor> descriptors;
 
-    KeyCountRunnable(List<KeyDescriptor> keys) {
-      this.keys = keys;
+    DescriptorCountRunnable(List<Descriptor> descriptors) {
+      this.descriptors = descriptors;
     }
 
     @Override
@@ -111,7 +114,7 @@ abstract class Writer {
         for(State s : State.values()) {
           counters.put(s, new AtomicInteger());
         }
-        for(KeyDescriptor k : keys) {
+        for(Descriptor k : descriptors) {
           counters.get(k.getState()).incrementAndGet();
         }
         Print.ln("COUNTS", counters);
@@ -128,9 +131,6 @@ abstract class Writer {
     }
   }
 
-  static final ReplicationConfig REPLICATION_CONFIG = ReplicationConfig.fromTypeAndFactor(
-      ReplicationType.RATIS, ReplicationFactor.THREE);
-
   private final List<File> localFiles;
 
   Writer(List<File> localFiles) {
@@ -145,15 +145,15 @@ abstract class Writer {
     return localFiles.get(i);
   }
 
-  abstract Writer init(long fileSize, OzoneBucket bucket) throws IOException;
+  abstract void init(Benchmark benchmark) throws IOException;
 
-  List<KeyDescriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
-    final List<KeyDescriptor> keys = writeImpl(fileSize, chunkSize, executor);
-    new Thread(new KeyCountRunnable(keys)).start();
-    return keys;
+  List<Descriptor> write(long fileSize, int chunkSize, ExecutorService executor) {
+    final List<Descriptor> descriptors = writeImpl(fileSize, chunkSize, executor);
+    new Thread(new DescriptorCountRunnable(descriptors)).start();
+    return descriptors;
   }
 
-  abstract List<KeyDescriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor);
+  abstract List<Descriptor> writeImpl(long fileSize, int chunkSize, ExecutorService executor);
 
   CompletableFuture<Boolean> writeAsync(String name, Supplier<Long> writeMethod, long fileSize, ExecutorService executor) {
     final Instant start = Instant.now();
@@ -176,6 +176,30 @@ abstract class Writer {
         return false;
       }
     };
+  }
+
+  abstract BiFunction<Descriptor, ExecutorService, CompletableFuture<byte[]>> getRemoteMessageDigestFunction(Verifier verifier);
+
+  void verify(Benchmark.Parameters parameters, SizeInBytes chunkSize,
+      List<Descriptor> descriptors, ExecutorService executor) {
+    final Instant verifyStartTime = Instant.now();
+    for (Descriptor descriptor : descriptors) {
+      final Verifier verifier = new Verifier(chunkSize.getSizeInt(), parameters.getMessageDigestAlgorithm());
+      verifier.verifyMessageDigest(descriptor, getRemoteMessageDigestFunction(verifier), executor);
+    }
+    int errorCount = 0;
+    for (Descriptor descriptor : descriptors) {
+      if (!descriptor.joinVerifyFuture()) {
+        Print.error(this, "Failed to verify " + descriptor);
+        errorCount++;
+      }
+    }
+    if (errorCount > 0) {
+      throw new IllegalStateException("Failed to verify " + errorCount + " descriptors.");
+    } else {
+      Print.ln(Benchmark.Op.VERIFY, "All " + descriptors.size() + " descriptors are verified.");
+    }
+    Print.elapsed(Benchmark.Op.VERIFY, verifyStartTime);
   }
 
   @Override

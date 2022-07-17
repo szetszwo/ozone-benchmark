@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 
 /** Verifier a remote key with a local file. */
 class Verifier {
@@ -49,10 +50,12 @@ class Verifier {
     }
   }
 
-  void verifyMessageDigest(Writer.KeyDescriptor key, OzoneBucket bucket, ExecutorService executor) {
+  void verifyMessageDigest(Writer.Descriptor key,
+      BiFunction<Writer.Descriptor, ExecutorService, CompletableFuture<byte[]>> remoteMessageDigest,
+      ExecutorService executor) {
     Print.ln(Benchmark.Op.VERIFY, "Start verifying " + key);
     final CompletableFuture<byte[]> local = computeMessageDigestAsync(key.getLocalFile(), executor);
-    final CompletableFuture<byte[]> remote = computeMessageDigestAsync(key.getKey(), bucket, executor);
+    final CompletableFuture<byte[]> remote = remoteMessageDigest.apply(key, executor);
     local.thenCombine(remote, Arrays::equals).thenAccept(key::completeVerifyFuture);
   }
 
@@ -70,7 +73,7 @@ class Verifier {
   byte[] computeMessageDigest(String name, String key, OzoneBucket bucket) throws IOException {
     Print.ln(Benchmark.Op.VERIFY, name);
     try (OzoneInputStream in = bucket.readKey(key)) {
-      return computeMessageDigest(in, buffer, getMessageDigest());
+      return computeMessageDigest(in);
     }
   }
 
@@ -88,8 +91,12 @@ class Verifier {
   byte[] computeMessageDigest(String name, File localFile) throws IOException {
     Print.ln(Benchmark.Op.VERIFY, name);
     try (FileInputStream in = new FileInputStream(localFile)) {
-      return computeMessageDigest(in, buffer, getMessageDigest());
+      return computeMessageDigest(in);
     }
+  }
+
+  byte[] computeMessageDigest(InputStream in) throws IOException {
+    return computeMessageDigest(in, buffer, getMessageDigest());
   }
 
   static byte[] computeMessageDigest(InputStream in, byte[] buffer, MessageDigest algorithm) throws IOException {
