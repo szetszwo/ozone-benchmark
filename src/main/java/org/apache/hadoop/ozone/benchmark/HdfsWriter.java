@@ -65,7 +65,7 @@ public class HdfsWriter extends Writer {
 
   @Override
   void init(Benchmark benchmark) throws IOException {
-    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, benchmark.getParameters().getServiceAddress());
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, "hdfs://" + benchmark.getParameters().getServiceAddress());
     fs = FileSystem.get(conf);
     dir = new Path("/benchmark/" + benchmark.getId());
     for (int i = 0; i < getLocalFiles().size(); i++) {
@@ -101,6 +101,8 @@ public class HdfsWriter extends Writer {
 
   @Override
   public void close() throws IOException {
-    fs.close();
+    if (fs != null) {
+      fs.close();
+    }
   }
 }
