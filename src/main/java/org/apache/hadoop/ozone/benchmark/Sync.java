@@ -116,7 +116,7 @@ public abstract class Sync {
 
     @Override
     public void run() {
-      final ExecutorService executor = Executors.newFixedThreadPool(getHosts().size());
+      final ExecutorService executor = Executors.newFixedThreadPool(Math.max(getHosts().size(), 1));
       final boolean accepted;
       try {
         accepted = accept(executor);
