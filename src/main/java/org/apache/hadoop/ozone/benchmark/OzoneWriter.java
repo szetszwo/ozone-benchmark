@@ -105,7 +105,7 @@ abstract class OzoneWriter extends Writer {
 
   @Override
   void init(Benchmark benchmark) throws IOException {
-    ozoneClient = getOzoneClient(benchmark.getParameters().getOm(), benchmark.getChunkSize());
+    ozoneClient = getOzoneClient(benchmark.getParameters().getServiceAddress(), benchmark.getChunkSize());
     Print.ln(Benchmark.Op.INIT_WRITER, "OzoneClient " + ozoneClient);
     // An Ozone ObjectStore instance is the entry point to access Ozone.
     final ObjectStore store = ozoneClient.getObjectStore();

@@ -40,7 +40,7 @@ public class Benchmark {
 
     String getId();
 
-    String getOm();
+    String getServiceAddress();
 
     int getFileNum();
 

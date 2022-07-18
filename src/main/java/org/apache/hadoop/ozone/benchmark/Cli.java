@@ -36,8 +36,8 @@ interface Cli extends Benchmark.Parameters {
     @Parameter(names = "-port", description = "Server port for sync.")
     private int port = Sync.DEFAULT_PORT;
 
-    @Parameter(names = "-om", description = "Ozone Manager address")
-    private String om = "";
+    @Parameter(names = "-serviceAddress", description = "Service address (Ozone Manager/Namenode) ")
+    private String serviceAddress = "";
 
     @Parameter(names = "-fileNum", description = "The number of files.")
     private int fileNum = 4;
@@ -91,8 +91,8 @@ interface Cli extends Benchmark.Parameters {
     }
 
     @Override
-    public String getOm() {
-      return om;
+    public String getServiceAddress() {
+      return serviceAddress;
     }
     @Override
     public int getFileNum() {
@@ -140,7 +140,7 @@ interface Cli extends Benchmark.Parameters {
 
     @Override
     public String toString() {
-      return clients + ", port=" + port + ", om=" + om
+      return clients + ", port=" + port + ", serviceAddress=" + serviceAddress
           + "\n          type = " + type
           + "\n       fileNum = " + fileNum
           + "\n      fileSize = " + fileSize

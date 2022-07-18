@@ -18,6 +18,7 @@
 package org.apache.hadoop.ozone.benchmark;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -64,6 +65,7 @@ public class HdfsWriter extends Writer {
 
   @Override
   void init(Benchmark benchmark) throws IOException {
+    conf.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, benchmark.getParameters().getServiceAddress());
     fs = FileSystem.get(conf);
     dir = new Path("/benchmark/" + benchmark.getId());
     for (int i = 0; i < getLocalFiles().size(); i++) {
